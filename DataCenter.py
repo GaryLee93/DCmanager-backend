@@ -4,11 +4,14 @@ DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
 
 @DATA_CENTER_BLUEPRINT.route('/', methods=['POST'])
 def AddDC():
-    return "Add Data Center"
+    name = request.json.get('name')
+    default_height = request.json.get('default_height')
+    ## write into database
+    return 
 
 @DATA_CENTER_BLUEPRINT.route('/all', methods=['GET'])
 def GetAllDC():
-    return "Get All Data Centers"
+    return 
 
 @DATA_CENTER_BLUEPRINT.route('/<dc_id>', methods=['PUT'])
 def ModifyDC():
