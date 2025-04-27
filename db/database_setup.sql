@@ -98,10 +98,10 @@ CREATE TABLE users (
 );
 
 -- Table for mapping services to hosts
-CREATE TABLE service_hosts (
-    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE, -- Foreign key to services
-    host_id UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE, -- Foreign key to hosts
-    PRIMARY KEY (service_id, host_id), -- Composite primary key
+CREATE TABLE service_racks (
+    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    rack_id UUID NOT NULL REFERENCES racks(id) ON DELETE CASCADE,
+    PRIMARY KEY (service_id, rack_id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -244,7 +244,6 @@ FOR EACH ROW EXECUTE FUNCTION update_hosts_room_id();
 CREATE INDEX idx_rooms_dc_id ON rooms(dc_id);
 CREATE INDEX idx_racks_room_id ON racks(room_id);
 CREATE INDEX idx_racks_dc_id ON racks(dc_id);
-CREATE INDEX idx_hosts_rack_id ON hosts(rack_id);
 CREATE INDEX idx_hosts_room_id ON hosts(room_id);
 CREATE INDEX idx_hosts_dc_id ON hosts(dc_id);
 CREATE INDEX idx_hosts_service_id ON hosts(service_id);
