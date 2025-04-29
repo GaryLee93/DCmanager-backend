@@ -1,4 +1,7 @@
 from flask import Blueprint, request
+from db import database
+
+Database = database.Database()
 
 DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
 
