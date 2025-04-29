@@ -6,30 +6,25 @@
 brew services start postgresql
 psql postgres
 ```
-2. Create database
+2. build docker image
 ```
-CREATE DATABASE datacenter_management;
-\q
+docker build -t datacenter-postgres .
 ```
-3. run database set up script 
+3. run database by docker 
 ```
-cd db/
-psql -d datacenter_management -f database_setup.sql
+docker run -d \
+  --name datacenter-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -v datacenter-db-volume:/var/lib/postgresql/data \
+  -p 5433:5432 \
+  datacenter-postgres
 ```
-4. start postgres
+4. connect database (remember to run container first)
 ```
-psql postgres
+docker exec -it datacenter-db psql -U postgres -d datacenter_management
+
 ```
-5. create your user account and password
-```
-CREATE USER postgres WITH SUPERUSER PASSWORD 'your_password';
-\q
-```
-6. run postgres with new user
-```
-psql -U postgres postgres
-```
-7. If you want to export current database:
+4. If you want to export current database:
 ```
 pg_dump -d datacenter_management --schema-only > datacenter_db_schema.sql
 ```
