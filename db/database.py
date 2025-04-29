@@ -14,10 +14,23 @@ import uuid
 DB_CONFIG = {
     'dbname': os.environ.get('DB_NAME', 'datacenter_management'),
     'user': os.environ.get('DB_USER', 'postgres'),
-    'password': os.environ.get('DB_PASSWORD', 'password'),
+    'password': os.environ.get('DB_PASSWORD', 'postgres'),
     'host': os.environ.get('DB_HOST', 'localhost'),
-    'port': os.environ.get('DB_PORT', '5432')
+    'port': os.environ.get('DB_PORT', '5433')
 }
+
+def test_connection():
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+        cur = conn.cursor()
+        cur.execute("SELECT version();")
+        version = cur.fetchone()
+        print(f"Connected to database! PostgreSQL version: {version[0]}")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+
 
 # Create a connection pool
 pool = SimpleConnectionPool(1, 10, **DB_CONFIG)
@@ -355,3 +368,6 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
+                
+if __name__ == '__main__':
+    test_connection()
