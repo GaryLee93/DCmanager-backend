@@ -1,4 +1,5 @@
 from flask import Flask
+from BluePrint import DataCenter, Room, Rack, Host
 
 app = Flask(__name__)
 

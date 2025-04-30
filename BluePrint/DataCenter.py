@@ -1,9 +1,9 @@
 from flask import Blueprint, request
-from db import database
+from db.database import DatacenterManager
 from utils import schema
 from Room import DeleteRoom
 
-DBmanager = database.DatacenterManager()
+DBmanager = DatacenterManager()
 
 DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
 
@@ -12,7 +12,6 @@ DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
 def AddDC():
     name = request.json.get('name' , type = str)
     default_height = request.json.get('default_height', type = int)
-    DBmanager.createDatacenter(name, default_height)
     return 
 
 @DATA_CENTER_BLUEPRINT.route('/all', methods=['GET'])
