@@ -1866,7 +1866,486 @@ class ServiceManager:
             if conn:
                 self.release_connection(conn)
 
+class IP_SubnetManager:
+    """Class for managing IP Subnet operations"""
 
+    @staticmethod
+    def get_connection():
+        """Get a connection from the pool"""
+        return pool.getconn()
+
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)
+
+    # IP Subnet operations
+    def getIP_Subnet(self, subnet_id=None):
+        """
+        Get IP Subnet information.
+        If subnet_id is provided, returns specific IP Subnet as IP_Subnet object,
+        otherwise returns list of IP_Subnet objects.
+        Returns None if subnet_id is provided but not found.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                if subnet_id:
+                    # Get the specific subnet
+                    cursor.execute("SELECT * FROM ip_subnets WHERE id = %s", (subnet_id,))
+                    data = cursor.fetchone()
+                    if not data:
+                        return None
+                    
+                    # Create and return an IP_Subnet object
+                    return IP_Subnet(
+                        ip=data['ip'],
+                        mask=data['mask']
+                    )
+                else:
+                    # Get all subnets
+                    cursor.execute("SELECT * FROM ip_subnets ORDER BY ip")
+                    subnets_data = cursor.fetchall()
+                    
+                    # Create a list to store IP_Subnet objects
+                    subnets = []
+                    
+                    # Process each subnet
+                    for data in subnets_data:
+                        # Create IP_Subnet object and append to list
+                        subnets.append(
+                            IP_Subnet(
+                                ip=data['ip'],
+                                mask=data['mask']
+                            )
+                        )
+                    
+                    return subnets
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def createIP_Subnet(self, ip, mask):
+        """
+        Create a new IP Subnet.
+        Returns the created IP_Subnet object or None if creation fails.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Insert new subnet
+                cursor.execute(
+                    "INSERT INTO ip_subnets (ip, mask) VALUES (%s, %s) RETURNING id",
+                    (ip, mask)
+                )
+                subnet_id = cursor.fetchone()['id']
+                conn.commit()
+                
+                # Return the new subnet as an IP_Subnet object
+                return self.getIP_Subnet(subnet_id)
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def updateIP_Subnet(self, subnet_id, ip=None, mask=None):
+        """
+        Update an existing IP Subnet.
+        Returns the updated IP_Subnet object or None if update fails.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Prepare update fields
+                update_fields = []
+                params = []
+                
+                if ip is not None:
+                    update_fields.append("ip = %s")
+                    params.append(ip)
+                
+                if mask is not None:
+                    update_fields.append("mask = %s")
+                    params.append(mask)
+                
+                if not update_fields:
+                    return self.getIP_Subnet(subnet_id)  # Nothing to update
+                
+                # Add subnet_id to params
+                params.append(subnet_id)
+                
+                # Update the subnet
+                query = f"UPDATE ip_subnets SET {', '.join(update_fields)} WHERE id = %s"
+                cursor.execute(query, params)
+                conn.commit()
+                
+                # Return the updated subnet
+                return self.getIP_Subnet(subnet_id)
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def deleteIP_Subnet(self, subnet_id):
+        """
+        Delete an IP Subnet.
+        Returns True if deletion was successful, False otherwise.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM ip_subnets WHERE id = %s", (subnet_id,))
+                deleted = cursor.rowcount > 0
+                conn.commit()
+                return deleted
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+
+
+class UserManager:
+    """Class for managing User operations"""
+
+    @staticmethod
+    def get_connection():
+        """Get a connection from the pool"""
+        return pool.getconn()
+
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)
+
+    # User operations
+    def getUser(self, user_id=None, username=None):
+        """
+        Get user information.
+        If user_id or username is provided, returns specific user as User object,
+        otherwise returns list of User objects.
+        Returns None if user_id/username is provided but not found.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                if user_id:
+                    # Get the specific user by ID
+                    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                    data = cursor.fetchone()
+                    if not data:
+                        return None
+                    
+                    # Create and return a User object
+                    return User(
+                        id=data['id'],
+                        username=data['username'],
+                        password=data['password'],
+                        role=data['role']
+                    )
+                elif username:
+                    # Get the specific user by username
+                    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+                    data = cursor.fetchone()
+                    if not data:
+                        return None
+                    
+                    # Create and return a User object
+                    return User(
+                        id=data['id'],
+                        username=data['username'],
+                        password=data['password'],
+                        role=data['role']
+                    )
+                else:
+                    # Get all users
+                    cursor.execute("SELECT * FROM users ORDER BY username")
+                    users_data = cursor.fetchall()
+                    
+                    # Create a list to store User objects
+                    users = []
+                    
+                    # Process each user
+                    for data in users_data:
+                        # Create User object and append to list
+                        users.append(
+                            User(
+                                id=data['id'],
+                                username=data['username'],
+                                password=data['password'],
+                                role=data['role']
+                            )
+                        )
+                    
+                    return users
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def createUser(self, username, password, role):
+        """
+        Create a new User.
+        Returns the created User object or None if creation fails.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Insert new user
+                cursor.execute(
+                    "INSERT INTO users (username, password, role) VALUES (%s, %s, %s) RETURNING id",
+                    (username, password, role)
+                )
+                user_id = cursor.fetchone()['id']
+                conn.commit()
+                
+                # Return the new user as a User object
+                return self.getUser(user_id)
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def updateUser(self, user_id, username=None, password=None, role=None):
+        """
+        Update an existing User.
+        Returns the updated User object or None if update fails.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Prepare update fields
+                update_fields = []
+                params = []
+                
+                if username is not None:
+                    update_fields.append("username = %s")
+                    params.append(username)
+                
+                if password is not None:
+                    update_fields.append("password = %s")
+                    params.append(password)
+                
+                if role is not None:
+                    update_fields.append("role = %s")
+                    params.append(role)
+                
+                if not update_fields:
+                    return self.getUser(user_id)  # Nothing to update
+                
+                # Add user_id to params
+                params.append(user_id)
+                
+                # Update the user
+                query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = %s"
+                cursor.execute(query, params)
+                conn.commit()
+                
+                # Return the updated user
+                return self.getUser(user_id)
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def deleteUser(self, user_id):
+        """
+        Delete a User.
+        Returns True if deletion was successful, False otherwise.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+                deleted = cursor.rowcount > 0
+                conn.commit()
+                return deleted
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+
+    def authenticate(self, username, password):
+        """
+        Authenticate a user.
+        Returns the User object if authentication is successful, None otherwise.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(
+                    "SELECT * FROM users WHERE username = %s AND password = %s",
+                    (username, password)
+                )
+                data = cursor.fetchone()
+                if not data:
+                    return None
+                
+                # Create and return a User object
+                return User(
+                    id=data['id'],
+                    username=data['username'],
+                    password=data['password'],
+                    role=data['role']
+                )
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+
+
+class Company_IP_SubnetsManager:
+    """Class for managing Company IP Subnets operations"""
+
+    @staticmethod
+    def get_connection():
+        """Get a connection from the pool"""
+        return pool.getconn()
+
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)
+
+    # Company IP Subnets operations
+    def getCompany_IP_Subnets(self, company_id):
+        """
+        Get Company IP Subnets information.
+        Returns Company_IP_Subnets object for the specified company.
+        Returns None if company_id is not found.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Check if company exists
+                cursor.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
+                if not cursor.fetchone():
+                    return None
+                
+                # Get all IP subnets for this company
+                cursor.execute(
+                    "SELECT ip_subnets.* FROM company_ip_subnets " +
+                    "JOIN ip_subnets ON company_ip_subnets.subnet_id = ip_subnets.id " +
+                    "WHERE company_ip_subnets.company_id = %s",
+                    (company_id,)
+                )
+                subnets_data = cursor.fetchall()
+                
+                # Create a list to store IP_Subnet objects
+                ip_subnets = []
+                
+                # Process each subnet
+                for data in subnets_data:
+                    # Create IP_Subnet object and append to list
+                    ip_subnets.append(
+                        IP_Subnet(
+                            ip=data['ip'],
+                            mask=data['mask']
+                        )
+                    )
+                
+                # Create and return a Company_IP_Subnets object
+                return Company_IP_Subnets(ip_subnets=ip_subnets)
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def addSubnetToCompany(self, company_id, subnet_id):
+        """
+        Add an IP Subnet to a Company.
+        Returns True if addition was successful, False otherwise.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # Check if the association already exists
+                cursor.execute(
+                    "SELECT * FROM company_ip_subnets WHERE company_id = %s AND subnet_id = %s",
+                    (company_id, subnet_id)
+                )
+                if cursor.fetchone():
+                    return True  # Association already exists
+                
+                # Add the association
+                cursor.execute(
+                    "INSERT INTO company_ip_subnets (company_id, subnet_id) VALUES (%s, %s)",
+                    (company_id, subnet_id)
+                )
+                conn.commit()
+                return True
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def removeSubnetFromCompany(self, company_id, subnet_id):
+        """
+        Remove an IP Subnet from a Company.
+        Returns True if removal was successful, False otherwise.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM company_ip_subnets WHERE company_id = %s AND subnet_id = %s",
+                    (company_id, subnet_id)
+                )
+                removed = cursor.rowcount > 0
+                conn.commit()
+                return removed
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
 
 # Example usage
 def main():
