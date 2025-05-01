@@ -302,91 +302,65 @@ class DatacenterManager:
                 self.release_connection(conn)
 
 
-    # Room operations
-    def getRooms(self, datacenter_id=None, room_id=None):
+class RoomManager:
+    def __init__(self, db_pool):
         """
-        Get rooms information.
-        If datacenter_id is provided, returns list of rooms in that datacenter.
-        If room_id is provided, returns specific room as Room object.
-        Returns None if room_id is provided but not found.
+        Initialize the RoomManager with a database connection pool.
+        
+        Args:
+            db_pool: Database connection pool
+        """
+        self.db_pool = db_pool
+    
+    def get_connection(self):
+        """Get a connection from the pool"""
+        return self.db_pool.getconn()
+    
+    def release_connection(self, conn):
+        """Return a connection to the pool"""
+        self.db_pool.putconn(conn)
+    
+    # CREATE operations
+    def createRoom(self, name, height, datacenter_id):
+        """
+        Create a new room in a datacenter.
+        
+        Args:
+            name (str): Name of the room
+            height (int): Height capacity for the room
+            datacenter_id (str): ID of the datacenter this room belongs to
+        
+        Returns:
+            str: ID of the newly created room
         """
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                if room_id:
-                    # Get the specific room
-                    cursor.execute("SELECT * FROM rooms WHERE id = %s", (room_id,))
-                    data = cursor.fetchone()
-                    if not data:
-                        return None
-                    
-                    # Create and return a Room object
-                    # id: str, 
-                    #  name: str, 
-                    #  height: int, 
-                    #  racks: list,
-                    #  n_racks: int,
-                    #  n_hosts: int,
-                    #  dc_id: str
-
-                    return Room(
-                        id=data['id'],
-                        name=data['name'],
-                        height=data['height'],
-                        racks=data['racks'],
-                        n_racks=data['n_racks'],
-                        n_hosts=data['n_hosts'],
-                        dc_id=data['datacenter_id']
-                    )
-                elif datacenter_id:
-                    # Get all rooms in the specified datacenter
-                    cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
-                    rooms_data = cursor.fetchall()
-                    
-                    # Create a list to store Room objects
-                    rooms = []
-                    
-                    # Process each room
-                    for data in rooms_data:
-                        # Create Room object and append to list
-                        rooms.append(
-                            Room(
-                                id=data['id'],
-                                name=data['name'],
-                                height=data['height'],
-                                racks=data['racks'],
-                                n_racks=data['n_racks'],
-                                n_hosts=data['n_hosts'],
-                                dc_id=data['datacenter_id']
-                            )
-                        )
-                    
-                    return rooms
-                else:
-                    # Get all rooms
-                    cursor.execute("SELECT * FROM rooms ORDER BY name")
-                    rooms_data = cursor.fetchall()
-                    
-                    # Create a list to store Room objects
-                    rooms = []
-                    
-                    # Process each room
-                    for data in rooms_data:
-                        # Create Room object and append to list
-                        rooms.append(
-                            Room(
-                                id=data['id'],
-                                name=data['name'],
-                                height=data['height'],
-                                racks=data['racks'],
-                                n_racks=data['n_racks'],
-                                n_hosts=data['n_hosts'],
-                                dc_id=data['datacenter_id']
-                            )
-                        )
-                    
-                    return rooms
+            with conn.cursor() as cursor:
+                # Check if datacenter exists
+                cursor.execute("SELECT id FROM datacenters WHERE id = %s", (datacenter_id,))
+                if cursor.fetchone() is None:
+                    raise Exception(f"Datacenter with ID {datacenter_id} does not exist")
+                
+                # Generate a new UUID for the room
+                cursor.execute("SELECT gen_random_uuid()")
+                room_id = cursor.fetchone()[0]
+                
+                # Insert the new room
+                cursor.execute(
+                    "INSERT INTO rooms (id, name, height, n_racks, n_hosts, datacenter_id) VALUES (%s, %s, %s, 0, 0, %s)",
+                    (room_id, name, height, datacenter_id)
+                )
+                
+                # Update the room count in the datacenter
+                cursor.execute(
+                    "UPDATE datacenters SET n_rooms = n_rooms + 1 WHERE id = %s",
+                    (datacenter_id,)
+                )
+                
+                conn.commit()
+                return room_id
+                
         except Exception as e:
             if conn:
                 conn.rollback()
@@ -394,62 +368,148 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
-    def createRoom(self, datacenter_id, name, height):
+    
+    # READ operations
+    def getRoom(self, room_id):
         """
-        Create a new room in the specified datacenter.
+        Get a room by ID.
+        
+        Args:
+            room_id (str): ID of the room to retrieve
+        
+        Returns:
+            Room: Room object if found, None otherwise
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, height, n_racks, n_hosts, datacenter_id FROM rooms WHERE id = %s",
+                    (room_id,)
+                )
+                result = cursor.fetchone()
+                
+                if result is None:
+                    return None
+                
+                # Get racks for this room
+                cursor.execute("SELECT id FROM racks WHERE room_id = %s", (room_id,))
+                rack_ids = [row[0] for row in cursor.fetchall()]
+                
+                # Create and return the Room object
+                return Room(
+                    id=result[0],
+                    name=result[1],
+                    height=result[2],
+                    racks=rack_ids,
+                    n_racks=result[3],
+                    n_hosts=result[4],
+                    dc_id=result[5]
+                )
+                
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def getRoomsByDatacenter(self, datacenter_id):
+        """
+        Get all rooms in a specific datacenter.
         
         Args:
             datacenter_id (str): ID of the datacenter
-            name (str): Name of the room
-            height (int): Height of the room
         
         Returns:
-            Room: A Room object representing the newly created room.
-            None: If creation fails
+            list: List of Room objects
         """
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # Insert the new room
+            with conn.cursor() as cursor:
                 cursor.execute(
-                    """
-                    INSERT INTO rooms (name, height, datacenter_id, n_racks, n_hosts)
-                    VALUES (%s, %s, %s, 0, 0)
-                    RETURNING id, name, height, n_racks, n_hosts
-                    """,
-                    (name, height, datacenter_id)
+                    "SELECT id, name, height, n_racks, n_hosts, datacenter_id FROM rooms WHERE datacenter_id = %s",
+                    (datacenter_id,)
                 )
+                results = cursor.fetchall()
                 
-                # Commit the transaction
-                conn.commit()
-                
-                # Get the newly created room data
-                new_room = cursor.fetchone()
-                
-                if new_room:
-                    # Create and return a Room object
-                    return Room(
-                        id=new_room['id'],
-                        name=new_room['name'],
-                        height=new_room['height'],
-                        racks=[],  # New room has no racks yet
-                        n_racks=new_room['n_racks'],
-                        n_hosts=new_room['n_hosts'],
-                        dc_id=datacenter_id
+                rooms = []
+                for result in results:
+                    room_id = result[0]
+                    
+                    # Get racks for this room
+                    cursor.execute("SELECT id FROM racks WHERE room_id = %s", (room_id,))
+                    rack_ids = [row[0] for row in cursor.fetchall()]
+                    
+                    # Create Room object
+                    room = Room(
+                        id=room_id,
+                        name=result[1],
+                        height=result[2],
+                        racks=rack_ids,
+                        n_racks=result[3],
+                        n_hosts=result[4],
+                        dc_id=result[5]
                     )
-                return None
+                    rooms.append(room)
+                
+                return rooms
                 
         except Exception as e:
-            if conn:
-                conn.rollback()
             raise e
         finally:
             if conn:
                 self.release_connection(conn)
+    
+    def getAllRooms(self):
+        """
+        Get all rooms.
+        
+        Returns:
+            list: List of Room objects
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, height, n_racks, n_hosts, datacenter_id FROM rooms"
+                )
+                results = cursor.fetchall()
+                
+                rooms = []
+                for result in results:
+                    room_id = result[0]
+                    
+                    # Get racks for this room
+                    cursor.execute("SELECT id FROM racks WHERE room_id = %s", (room_id,))
+                    rack_ids = [row[0] for row in cursor.fetchall()]
+                    
+                    # Create Room object
+                    room = Room(
+                        id=room_id,
+                        name=result[1],
+                        height=result[2],
+                        racks=rack_ids,
+                        n_racks=result[3],
+                        n_hosts=result[4],
+                        dc_id=result[5]
+                    )
+                    rooms.append(room)
+                
+                return rooms
+                
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    # UPDATE operations
     def updateRoom(self, room_id, name=None, height=None):
         """
-        Update an existing room in the database.
+        Update a room's information.
         
         Args:
             room_id (str): ID of the room to update
@@ -457,65 +517,41 @@ class DatacenterManager:
             height (int, optional): New height for the room
         
         Returns:
-            Room: Updated Room object
-            None: If room not found or update fails
+            bool: True if room was successfully updated, False if not found
         """
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+            with conn.cursor() as cursor:
                 # First check if room exists
-                cursor.execute("SELECT * FROM rooms WHERE id = %s", (room_id,))
-                room = cursor.fetchone()
-                if not room:
-                    return None
+                cursor.execute("SELECT id FROM rooms WHERE id = %s", (room_id,))
+                if cursor.fetchone() is None:
+                    return False
                 
-                # Prepare update query parts
-                update_parts = []
-                params = []
+                # Build the update query based on provided parameters
+                update_params = []
+                query_parts = []
                 
                 if name is not None:
-                    update_parts.append("name = %s")
-                    params.append(name)
-                    
+                    query_parts.append("name = %s")
+                    update_params.append(name)
+                
                 if height is not None:
-                    update_parts.append("height = %s")
-                    params.append(height)
+                    query_parts.append("height = %s")
+                    update_params.append(height)
                 
-                # If no updates requested, return the existing room
-                if not update_parts:
-                    return Room(
-                        id=room['id'],
-                        name=room['name'],
-                        height=room['height'],
-                        racks=room['racks'],
-                        n_racks=room['n_racks'],
-                        n_hosts=room['n_hosts'],
-                        dc_id=room['datacenter_id']
-                    )
+                if not query_parts:
+                    # Nothing to update
+                    return True
                 
-                # Add updated_at to be updated
-                update_parts.append("updated_at = CURRENT_TIMESTAMP")
+                query = f"UPDATE rooms SET {', '.join(query_parts)} WHERE id = %s"
+                update_params.append(room_id)
                 
-                # Build and execute update query
-                query = f"UPDATE rooms SET {', '.join(update_parts)} WHERE id = %s RETURNING *"
-                params.append(room_id)
-                
-                cursor.execute(query, params)
+                cursor.execute(query, tuple(update_params))
                 conn.commit()
                 
-                updated_room = cursor.fetchone()
-                
-                # Create and return updated Room object
-                return Room(
-                    id=updated_room['id'],
-                    name=updated_room['name'],
-                    height=updated_room['height'],
-                    racks=updated_room['racks'],
-                    n_racks=updated_room['n_racks'],
-                    n_hosts=updated_room['n_hosts'],
-                    dc_id=room['datacenter_id']
-                )
+                # Check if any rows were affected
+                return cursor.rowcount > 0
                 
         except Exception as e:
             if conn:
@@ -524,6 +560,8 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
+    
+    # DELETE operations
     def deleteRoom(self, room_id):
         """
         Delete a room from the database.
@@ -538,10 +576,14 @@ class DatacenterManager:
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                # First check if room exists
-                cursor.execute("SELECT id FROM rooms WHERE id = %s", (room_id,))
-                if cursor.fetchone() is None:
+                # First check if room exists and get its datacenter_id
+                cursor.execute("SELECT id, datacenter_id FROM rooms WHERE id = %s", (room_id,))
+                room_info = cursor.fetchone()
+                
+                if room_info is None:
                     return False
+                
+                datacenter_id = room_info[1]
                 
                 # Check if room has any racks (optional: prevent deletion if it has dependencies)
                 cursor.execute("SELECT COUNT(*) FROM racks WHERE room_id = %s", (room_id,))
@@ -554,6 +596,13 @@ class DatacenterManager:
                 
                 # Delete the room
                 cursor.execute("DELETE FROM rooms WHERE id = %s", (room_id,))
+                
+                # Update the room count in the datacenter
+                cursor.execute(
+                    "UPDATE datacenters SET n_rooms = n_rooms - 1 WHERE id = %s",
+                    (datacenter_id,)
+                )
+                
                 conn.commit()
                 
                 # Check if any rows were affected
@@ -566,119 +615,89 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
-    # Rack operations
-    # id: str, 
-    # name: str, 
-    # height: int, 
-    # hosts: list,
-    # n_hosts: int,
-    # service_id: str,
-    # dc_id: str,
-    # room_id: str
-    def getRacks(self, datacenter_id=None, room_id=None, rack_id=None):
+class RackManager:
+    def __init__(self, db_pool):
         """
-        Get racks information.
-        If datacenter_id is provided, returns list of racks in that datacenter.
-        If room_id is provided, returns list of racks in that room.
-        If rack_id is provided, returns specific rack as Rack object.
-        Returns None if rack_id is provided but not found.
+        Initialize the RackManager with a database connection pool.
+        
+        Args:
+            db_pool: Database connection pool
+        """
+        self.db_pool = db_pool
+    
+    def get_connection(self):
+        """Get a connection from the pool"""
+        return self.db_pool.getconn()
+    
+    def release_connection(self, conn):
+        """Return a connection to the pool"""
+        self.db_pool.putconn(conn)
+    
+    # CREATE operations
+    def createRack(self, name, height, room_id, service_id=None):
+        """
+        Create a new rack in a room.
+        
+        Args:
+            name (str): Name of the rack
+            height (int): Height capacity for the rack
+            room_id (str): ID of the room this rack belongs to
+            service_id (str, optional): ID of the service this rack is assigned to
+        
+        Returns:
+            str: ID of the newly created rack
         """
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                if rack_id:
-                    # Get the specific rack
-                    cursor.execute("SELECT * FROM racks WHERE id = %s", (rack_id,))
-                    data = cursor.fetchone()
-                    if not data:
-                        return None
-                    
-                    # Create and return a Rack object
-                    return Rack(
-                        id=data['id'],
-                        name=data['name'],
-                        height=data['height'],
-                        hosts=data['hosts'],
-                        n_hosts=data['n_hosts'],
-                        service_id=data['service_id'],
-                        dc_id=data['datacenter_id'],
-                        room_id=data['room_id']
+            with conn.cursor() as cursor:
+                # Check if room exists and get datacenter_id
+                cursor.execute("SELECT id, datacenter_id FROM rooms WHERE id = %s", (room_id,))
+                room_info = cursor.fetchone()
+                
+                if room_info is None:
+                    raise Exception(f"Room with ID {room_id} does not exist")
+                
+                datacenter_id = room_info[1]
+                
+                # Check if service exists (if provided)
+                if service_id is not None:
+                    cursor.execute("SELECT id FROM services WHERE id = %s", (service_id,))
+                    if cursor.fetchone() is None:
+                        raise Exception(f"Service with ID {service_id} does not exist")
+                
+                # Generate a new UUID for the rack
+                cursor.execute("SELECT gen_random_uuid()")
+                rack_id = cursor.fetchone()[0]
+                
+                # Insert the new rack
+                cursor.execute(
+                    "INSERT INTO racks (id, name, height, n_hosts, service_id, datacenter_id, room_id) VALUES (%s, %s, %s, 0, %s, %s, %s)",
+                    (rack_id, name, height, service_id, datacenter_id, room_id)
+                )
+                
+                # Update the rack count in the room
+                cursor.execute(
+                    "UPDATE rooms SET n_racks = n_racks + 1 WHERE id = %s",
+                    (room_id,)
+                )
+                
+                # Update the rack count in the datacenter
+                cursor.execute(
+                    "UPDATE datacenters SET n_racks = n_racks + 1 WHERE id = %s",
+                    (datacenter_id,)
+                )
+                
+                # Update the rack count in the service (if provided)
+                if service_id is not None:
+                    cursor.execute(
+                        "UPDATE services SET n_racks = n_racks + 1 WHERE id = %s",
+                        (service_id,)
                     )
-                elif room_id:
-                    # Get all racks in the specified room
-                    cursor.execute("SELECT * FROM racks WHERE room_id = %s", (room_id,))
-                    racks_data = cursor.fetchall()
-                    
-                    # Create a list to store Rack objects
-                    racks = []
-                    
-                    # Process each rack
-                    for data in racks_data:
-                        # Create Rack object and append to list
-                        racks.append(
-                            Rack(
-                                id=data['id'],
-                                name=data['name'],
-                                height=data['height'],
-                                hosts=data['hosts'],
-                                n_hosts=data['n_hosts'],
-                                service_id=data['service_id'],
-                                dc_id=data['datacenter_id'],
-                                room_id=data['room_id']
-                            )
-                        )
-                    
-                    return racks
-                elif datacenter_id:
-                    # Get all racks in the specified datacenter
-                    cursor.execute("SELECT * FROM racks WHERE datacenter_id = %s", (datacenter_id,))
-                    racks_data = cursor.fetchall()
-                    
-                    # Create a list to store Rack objects
-                    racks = []
-                    
-                    # Process each rack
-                    for data in racks_data:
-                        # Create Rack object and append to list
-                        racks.append(
-                            Rack(
-                                id=data['id'],
-                                name=data['name'],
-                                height=data['height'],
-                                hosts=data['hosts'],
-                                n_hosts=data['n_hosts'],
-                                service_id=data['service_id'],
-                                dc_id=data['datacenter_id'],
-                                room_id=data['room_id']
-                            )
-                        )
-                    return racks
-                else:
-                    # Get all racks
-                    cursor.execute("SELECT * FROM racks ORDER BY name")
-                    racks_data = cursor.fetchall()
-                    
-                    # Create a list to store Rack objects
-                    racks = []
-                    
-                    # Process each rack
-                    for data in racks_data:
-                        # Create Rack object and append to list
-                        racks.append(
-                            Rack(
-                                id=data['id'],
-                                name=data['name'],
-                                height=data['height'],
-                                hosts=data['hosts'],
-                                n_hosts=data['n_hosts'],
-                                service_id=data['service_id'],
-                                dc_id=data['datacenter_id'],
-                                room_id=data['room_id']
-                            )
-                        )
-                    
-                    return racks
+                
+                conn.commit()
+                return rack_id
+                
         except Exception as e:
             if conn:
                 conn.rollback()
@@ -686,139 +705,283 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
-    def createRack(self, room_id, name, height):
+    
+    # READ operations
+    def getRack(self, rack_id):
         """
-        Create a new rack in the specified room.
+        Get a rack by ID.
+        
+        Args:
+            rack_id (str): ID of the rack to retrieve
+        
+        Returns:
+            Rack: Rack object if found, None otherwise
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, height, n_hosts, service_id, datacenter_id, room_id FROM racks WHERE id = %s",
+                    (rack_id,)
+                )
+                result = cursor.fetchone()
+                
+                if result is None:
+                    return None
+                
+                # Get hosts for this rack
+                cursor.execute("SELECT id FROM hosts WHERE rack_id = %s", (rack_id,))
+                host_ids = [row[0] for row in cursor.fetchall()]
+                
+                # Create and return the Rack object
+                return Rack(
+                    id=result[0],
+                    name=result[1],
+                    height=result[2],
+                    hosts=host_ids,
+                    n_hosts=result[3],
+                    service_id=result[4],
+                    dc_id=result[5],
+                    room_id=result[6]
+                )
+                
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def getRacksByRoom(self, room_id):
+        """
+        Get all racks in a specific room.
         
         Args:
             room_id (str): ID of the room
-            name (str): Name of the rack
-            height (int): Height of the rack
         
         Returns:
-            Rack: A Rack object representing the newly created rack.
-            None: If creation fails
+            list: List of Rack objects
         """
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # Insert the new rack
+            with conn.cursor() as cursor:
                 cursor.execute(
-                    """
-                    INSERT INTO racks (name, height, room_id, n_hosts)
-                    VALUES (%s, %s, %s, 0)
-                    RETURNING id, name, height, n_hosts
-                    """,
-                    (name, height, room_id)
+                    "SELECT id, name, height, n_hosts, service_id, datacenter_id, room_id FROM racks WHERE room_id = %s",
+                    (room_id,)
                 )
+                results = cursor.fetchall()
                 
-                # Commit the transaction
-                conn.commit()
-                
-                # Get the newly created rack data
-                new_rack = cursor.fetchone()
-                
-                if new_rack:
-                    # Create and return a Rack object
-                    return Rack(
-                        id=new_rack['id'],
-                        name=new_rack['name'],
-                        height=new_rack['height'],
-                        hosts=[],  # New rack has no hosts yet
-                        n_hosts=new_rack['n_hosts'],
-                        service_id=None,
-                        dc_id=None,
-                        room_id=room_id
+                racks = []
+                for result in results:
+                    rack_id = result[0]
+                    
+                    # Get hosts for this rack
+                    cursor.execute("SELECT id FROM hosts WHERE rack_id = %s", (rack_id,))
+                    host_ids = [row[0] for row in cursor.fetchall()]
+                    
+                    # Create Rack object
+                    rack = Rack(
+                        id=rack_id,
+                        name=result[1],
+                        height=result[2],
+                        hosts=host_ids,
+                        n_hosts=result[3],
+                        service_id=result[4],
+                        dc_id=result[5],
+                        room_id=result[6]
                     )
-                return None
+                    racks.append(rack)
+                
+                return racks
                 
         except Exception as e:
-            if conn:
-                conn.rollback()
             raise e
         finally:
             if conn:
                 self.release_connection(conn)
-    def updateRack(self, rack_id, name=None, height=None):
+    
+    def getRacksByService(self, service_id):
         """
-        Update an existing rack in the database.
+        Get all racks assigned to a specific service.
+        
+        Args:
+            service_id (str): ID of the service
+        
+        Returns:
+            list: List of Rack objects
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, height, n_hosts, service_id, datacenter_id, room_id FROM racks WHERE service_id = %s",
+                    (service_id,)
+                )
+                results = cursor.fetchall()
+                
+                racks = []
+                for result in results:
+                    rack_id = result[0]
+                    
+                    # Get hosts for this rack
+                    cursor.execute("SELECT id FROM hosts WHERE rack_id = %s", (rack_id,))
+                    host_ids = [row[0] for row in cursor.fetchall()]
+                    
+                    # Create Rack object
+                    rack = Rack(
+                        id=rack_id,
+                        name=result[1],
+                        height=result[2],
+                        hosts=host_ids,
+                        n_hosts=result[3],
+                        service_id=result[4],
+                        dc_id=result[5],
+                        room_id=result[6]
+                    )
+                    racks.append(rack)
+                
+                return racks
+                
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def getAllRacks(self):
+        """
+        Get all racks.
+        
+        Returns:
+            list: List of Rack objects
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, height, n_hosts, service_id, datacenter_id, room_id FROM racks"
+                )
+                results = cursor.fetchall()
+                
+                racks = []
+                for result in results:
+                    rack_id = result[0]
+                    
+                    # Get hosts for this rack
+                    cursor.execute("SELECT id FROM hosts WHERE rack_id = %s", (rack_id,))
+                    host_ids = [row[0] for row in cursor.fetchall()]
+                    
+                    # Create Rack object
+                    rack = Rack(
+                        id=rack_id,
+                        name=result[1],
+                        height=result[2],
+                        hosts=host_ids,
+                        n_hosts=result[3],
+                        service_id=result[4],
+                        dc_id=result[5],
+                        room_id=result[6]
+                    )
+                    racks.append(rack)
+                
+                return racks
+                
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    # UPDATE operations
+    def updateRack(self, rack_id, name=None, height=None, service_id=None):
+        """
+        Update a rack's information.
         
         Args:
             rack_id (str): ID of the rack to update
             name (str, optional): New name for the rack
             height (int, optional): New height for the rack
+            service_id (str, optional): New service ID for the rack
         
         Returns:
-            Rack: Updated Rack object
-            None: If rack not found or update fails
+            bool: True if rack was successfully updated, False if not found
         """
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # First check if rack exists
-                cursor.execute("SELECT * FROM racks WHERE id = %s", (rack_id,))
-                rack = cursor.fetchone()
-                if not rack:
-                    return None
+            with conn.cursor() as cursor:
+                # First check if rack exists and get its current service_id
+                cursor.execute("SELECT id, service_id FROM racks WHERE id = %s", (rack_id,))
+                rack_info = cursor.fetchone()
                 
-                # Prepare update query parts
-                update_parts = []
-                params = []
+                if rack_info is None:
+                    return False
+                
+                current_service_id = rack_info[1]
+                
+                # Check if service exists (if a new one is provided)
+                if service_id is not None and service_id != current_service_id:
+                    cursor.execute("SELECT id FROM services WHERE id = %s", (service_id,))
+                    if cursor.fetchone() is None:
+                        raise Exception(f"Service with ID {service_id} does not exist")
+                
+                # Build the update query based on provided parameters
+                update_params = []
+                query_parts = []
                 
                 if name is not None:
-                    update_parts.append("name = %s")
-                    params.append(name)
-                    
-                if height is not None:
-                    update_parts.append("height = %s")
-                    params.append(height)
+                    query_parts.append("name = %s")
+                    update_params.append(name)
                 
-                # If no updates requested, return the existing rack
-                if not update_parts:
-                    return Rack(
-                        id=rack['id'],
-                        name=rack['name'],
-                        height=rack['height'],
-                        hosts=rack['hosts'],
-                        n_hosts=rack['n_hosts'],
-                        service_id=rack['service_id'],
-                        dc_id=rack['datacenter_id'],
-                        room_id=rack['room_id']
+                if height is not None:
+                    query_parts.append("height = %s")
+                    update_params.append(height)
+                
+                if service_id is not None:
+                    query_parts.append("service_id = %s")
+                    update_params.append(service_id)
+                
+                if not query_parts:
+                    # Nothing to update
+                    return True
+                
+                query = f"UPDATE racks SET {', '.join(query_parts)} WHERE id = %s"
+                update_params.append(rack_id)
+                
+                cursor.execute(query, tuple(update_params))
+                
+                # Update service counts if service_id has changed
+                if service_id is not None and service_id != current_service_id:
+                    # Decrement rack count in old service if it exists
+                    if current_service_id is not None:
+                        cursor.execute(
+                            "UPDATE services SET n_racks = n_racks - 1 WHERE id = %s",
+                            (current_service_id,)
+                        )
+                    
+                    # Increment rack count in new service
+                    cursor.execute(
+                        "UPDATE services SET n_racks = n_racks + 1 WHERE id = %s",
+                        (service_id,)
                     )
                 
-                # Add updated_at to be updated
-                update_parts.append("updated_at = CURRENT_TIMESTAMP")
-                
-                # Build and execute update query
-                query = f"UPDATE racks SET {', '.join(update_parts)} WHERE id = %s RETURNING *"
-                params.append(rack_id)
-                
-                cursor.execute(query, params)
                 conn.commit()
                 
-                updated_rack = cursor.fetchone()
-                
-                # Create and return updated Rack object
-                return Rack(
-                    id=updated_rack['id'],
-                    name=updated_rack['name'],
-                    height=updated_rack['height'],
-                    hosts=updated_rack['hosts'],
-                    n_hosts=updated_rack['n_hosts'],
-                    service_id=updated_rack['service_id'],
-                    dc_id=updated_rack['datacenter_id'],
-                    room_id=rack['room_id']
-                )
+                # Check if any rows were affected
+                return cursor.rowcount > 0
                 
         except Exception as e:
             if conn:
                 conn.rollback()
-            raise
+            raise e
         finally:
             if conn:
                 self.release_connection(conn)
+    
+    # DELETE operations
     def deleteRack(self, rack_id):
         """
         Delete a rack from the database.
@@ -833,10 +996,15 @@ class DatacenterManager:
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                # First check if rack exists
-                cursor.execute("SELECT id FROM racks WHERE id = %s", (rack_id,))
-                if cursor.fetchone() is None:
+                # First check if rack exists and get its room_id and service_id
+                cursor.execute("SELECT id, room_id, service_id FROM racks WHERE id = %s", (rack_id,))
+                rack_info = cursor.fetchone()
+                
+                if rack_info is None:
                     return False
+                
+                room_id = rack_info[1]
+                service_id = rack_info[2]
                 
                 # Check if rack has any hosts (optional: prevent deletion if it has dependencies)
                 cursor.execute("SELECT COUNT(*) FROM hosts WHERE rack_id = %s", (rack_id,))
@@ -849,6 +1017,26 @@ class DatacenterManager:
                 
                 # Delete the rack
                 cursor.execute("DELETE FROM racks WHERE id = %s", (rack_id,))
+                
+                # Update the rack count in the room
+                cursor.execute(
+                    "UPDATE rooms SET n_racks = n_racks - 1 WHERE id = %s",
+                    (room_id,)
+                )
+                
+                # Update the rack count in the datacenter
+                cursor.execute(
+                    "UPDATE datacenters SET n_racks = n_racks - 1 WHERE id = (SELECT datacenter_id FROM rooms WHERE id = %s)",
+                    (room_id,)
+                )
+                
+                # Update the rack count in the service (if provided)
+                if service_id is not None:
+                    cursor.execute(
+                        "UPDATE services SET n_racks = n_racks - 1 WHERE id = %s",
+                        (service_id,)
+                    )
+                
                 conn.commit()
                 
                 # Check if any rows were affected
@@ -861,5 +1049,20 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
+                
+
+# Example usage
+def main():
+    # Create a DatacenterManager instance
+    manager = DatacenterManager()
+    # Create a new datacenter
+    new_dc = manager.createDatacenter("New Datacenter", 42)
+    print(f"Created Datacenter: {new_dc.name} with ID: {new_dc.id}")
+    # Get all datacenters
+    all_dcs = manager.getDatacenter()
+    print("All Datacenters:")
+    for dc in all_dcs:
+        print(f"Datacenter ID: {dc.id}, Name: {dc.name}")
+    
 if __name__ == '__main__':
     test_connection()
