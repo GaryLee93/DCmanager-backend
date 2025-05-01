@@ -302,228 +302,271 @@ class DatacenterManager:
                 self.release_connection(conn)
 
 
-        # Room operations
-        def getRooms(self, datacenter_id=None, room_id=None):
-            """Get rooms based on datacenter_id or room_id"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                    if room_id:
-                        cursor.execute("SELECT * FROM rooms WHERE id = %s", (room_id,))
-                        return cursor.fetchone()
-                    elif datacenter_id:
-                        cursor.execute("SELECT * FROM rooms WHERE dc_id = %s ORDER BY name", (datacenter_id,))
-                        return cursor.fetchall()
-                    else:
-                        cursor.execute("SELECT * FROM rooms ORDER BY name")
-                        return cursor.fetchall()
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        def createRoom(self, name, dc_id, height=None):
-            """Create a new room in a datacenter"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                    # Get datacenter's default height if not specified
-                    if height is None:
-                        cursor.execute("SELECT default_height FROM datacenters WHERE id = %s", (dc_id,))
-                        datacenter = cursor.fetchone()
-                        if not datacenter:
-                            raise ValueError(f"Datacenter with id {dc_id} not found")
-                        height = datacenter['default_height']
+    # Room operations
+    def getRooms(self, datacenter_id=None, room_id=None):
+        """
+        Get rooms information.
+        If datacenter_id is provided, returns list of rooms in that datacenter.
+        If room_id is provided, returns specific room as Room object.
+        Returns None if room_id is provided but not found.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                if room_id:
+                    # Get the specific room
+                    cursor.execute("SELECT * FROM rooms WHERE id = %s", (room_id,))
+                    data = cursor.fetchone()
+                    if not data:
+                        return None
                     
-                    cursor.execute(
-                        "INSERT INTO rooms (name, dc_id, height) VALUES (%s, %s, %s) RETURNING *",
-                        (name, dc_id, height)
+                    # Create and return a Room object
+                    # id: str, 
+                    #  name: str, 
+                    #  height: int, 
+                    #  racks: list,
+                    #  n_racks: int,
+                    #  n_hosts: int,
+                    #  dc_id: str
+
+                    return Room(
+                        id=data['id'],
+                        name=data['name'],
+                        height=data['height'],
+                        racks=data['racks'],
+                        n_racks=data['n_racks'],
+                        n_hosts=data['n_hosts'],
+                        dc_id=data['datacenter_id']
                     )
-                    conn.commit()
-                    return cursor.fetchone()
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        def updateRoom(self, room_id, name=None, height=None):
-            """Update a room's information"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                    update_fields = []
-                    params = []
+                elif datacenter_id:
+                    # Get all rooms in the specified datacenter
+                    cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                    rooms_data = cursor.fetchall()
                     
-                    if name is not None:
-                        update_fields.append("name = %s")
-                        params.append(name)
-                        
-                    if height is not None:
-                        update_fields.append("height = %s")
-                        params.append(height)
+                    # Create a list to store Room objects
+                    rooms = []
                     
-                    if not update_fields:
-                        return self.getRooms(room_id=room_id)
+                    # Process each room
+                    for data in rooms_data:
+                        # Create Room object and append to list
+                        rooms.append(
+                            Room(
+                                id=data['id'],
+                                name=data['name'],
+                                height=data['height'],
+                                racks=data['racks'],
+                                n_racks=data['n_racks'],
+                                n_hosts=data['n_hosts'],
+                                dc_id=data['datacenter_id']
+                            )
+                        )
                     
-                    params.append(room_id)
-                    update_fields.append("updated_at = CURRENT_TIMESTAMP")
+                    return rooms
+                else:
+                    # Get all rooms
+                    cursor.execute("SELECT * FROM rooms ORDER BY name")
+                    rooms_data = cursor.fetchall()
                     
-                    query = f"UPDATE rooms SET {', '.join(update_fields)} WHERE id = %s RETURNING *"
-                    cursor.execute(query, params)
-                    conn.commit()
-                    return cursor.fetchone()
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        def deleteRoom(self, room_id):
-            """Delete a room and all associated resources"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor() as cursor:
-                    cursor.execute("DELETE FROM rooms WHERE id = %s", (room_id,))
-                    deleted_rows = cursor.rowcount
-                    conn.commit()
-                    return deleted_rows > 0
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        # Rack operations
-        def getRacks(self, datacenter_id=None, room_id=None, rack_id=None):
-            """Get racks based on datacenter_id, room_id, or rack_id"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                    if rack_id:
-                        cursor.execute("SELECT * FROM racks WHERE id = %s", (rack_id,))
-                        return cursor.fetchone()
-                    elif room_id:
-                        cursor.execute("SELECT * FROM racks WHERE room_id = %s ORDER BY name", (room_id,))
-                        return cursor.fetchall()
-                    elif datacenter_id:
-                        cursor.execute("SELECT * FROM racks WHERE dc_id = %s ORDER BY name", (datacenter_id,))
-                        return cursor.fetchall()
-                    else:
-                        cursor.execute("SELECT * FROM racks ORDER BY name")
-                        return cursor.fetchall()
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        def createRack(self, name, room_id, height=42):
-            """Create a new rack in a room"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                    # Get datacenter ID for the given room
-                    cursor.execute("SELECT dc_id FROM rooms WHERE id = %s", (room_id,))
-                    room = cursor.fetchone()
-                    if not room:
-                        raise ValueError(f"Room with id {room_id} not found")
+                    # Create a list to store Room objects
+                    rooms = []
                     
-                    cursor.execute(
-                        "INSERT INTO racks (name, room_id, dc_id, height) VALUES (%s, %s, %s, %s) RETURNING *",
-                        (name, room_id, room['dc_id'], height)
+                    # Process each room
+                    for data in rooms_data:
+                        # Create Room object and append to list
+                        rooms.append(
+                            Room(
+                                id=data['id'],
+                                name=data['name'],
+                                height=data['height'],
+                                racks=data['racks'],
+                                n_racks=data['n_racks'],
+                                n_hosts=data['n_hosts'],
+                                dc_id=data['datacenter_id']
+                            )
+                        )
+                    
+                    return rooms
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    def createRoom(self, datacenter_id, name, height):
+        """
+        Create a new room in the specified datacenter.
+        
+        Args:
+            datacenter_id (str): ID of the datacenter
+            name (str): Name of the room
+            height (int): Height of the room
+        
+        Returns:
+            Room: A Room object representing the newly created room.
+            None: If creation fails
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Insert the new room
+                cursor.execute(
+                    """
+                    INSERT INTO rooms (name, height, datacenter_id, n_racks, n_hosts)
+                    VALUES (%s, %s, %s, 0, 0)
+                    RETURNING id, name, height, n_racks, n_hosts
+                    """,
+                    (name, height, datacenter_id)
+                )
+                
+                # Commit the transaction
+                conn.commit()
+                
+                # Get the newly created room data
+                new_room = cursor.fetchone()
+                
+                if new_room:
+                    # Create and return a Room object
+                    return Room(
+                        id=new_room['id'],
+                        name=new_room['name'],
+                        height=new_room['height'],
+                        racks=[],  # New room has no racks yet
+                        n_racks=new_room['n_racks'],
+                        n_hosts=new_room['n_hosts'],
+                        dc_id=datacenter_id
                     )
-                    conn.commit()
-                    return cursor.fetchone()
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        def updateRack(self, rack_id, name=None, room_id=None, height=None):
-            """Update a rack's information"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                    update_fields = []
-                    params = []
+                return None
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    def updateRoom(self, room_id, name=None, height=None):
+        """
+        Update an existing room in the database.
+        
+        Args:
+            room_id (str): ID of the room to update
+            name (str, optional): New name for the room
+            height (int, optional): New height for the room
+        
+        Returns:
+            Room: Updated Room object
+            None: If room not found or update fails
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # First check if room exists
+                cursor.execute("SELECT * FROM rooms WHERE id = %s", (room_id,))
+                room = cursor.fetchone()
+                if not room:
+                    return None
+                
+                # Prepare update query parts
+                update_parts = []
+                params = []
+                
+                if name is not None:
+                    update_parts.append("name = %s")
+                    params.append(name)
                     
-                    if name is not None:
-                        update_fields.append("name = %s")
-                        params.append(name)
-                    
-                    if height is not None:
-                        update_fields.append("height = %s")
-                        params.append(height)
-                    
-                    if room_id is not None:
-                        # Get datacenter ID for the new room
-                        cursor.execute("SELECT dc_id FROM rooms WHERE id = %s", (room_id,))
-                        room = cursor.fetchone()
-                        if not room:
-                            raise ValueError(f"Room with id {room_id} not found")
-                        
-                        update_fields.append("room_id = %s")
-                        params.append(room_id)
-                        update_fields.append("dc_id = %s")
-                        params.append(room['dc_id'])
-                    
-                    if not update_fields:
-                        return self.getRacks(rack_id=rack_id)
-                    
-                    params.append(rack_id)
-                    update_fields.append("updated_at = CURRENT_TIMESTAMP")
-                    
-                    query = f"UPDATE racks SET {', '.join(update_fields)} WHERE id = %s RETURNING *"
-                    cursor.execute(query, params)
-                    conn.commit()
-                    return cursor.fetchone()
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-        def deleteRack(self, rack_id):
-            """Delete a rack and all associated hosts"""
-            conn = None
-            try:
-                conn = self.get_connection()
-                with conn.cursor() as cursor:
-                    cursor.execute("DELETE FROM racks WHERE id = %s", (rack_id,))
-                    deleted_rows = cursor.rowcount
-                    conn.commit()
-                    return deleted_rows > 0
-            except Exception as e:
-                if conn:
-                    conn.rollback()
-                raise e
-            finally:
-                if conn:
-                    self.release_connection(conn)
-
-    if __name__ == '__main__':
-        test_connection()
+                if height is not None:
+                    update_parts.append("height = %s")
+                    params.append(height)
+                
+                # If no updates requested, return the existing room
+                if not update_parts:
+                    return Room(
+                        id=room['id'],
+                        name=room['name'],
+                        height=room['height'],
+                        racks=room['racks'],
+                        n_racks=room['n_racks'],
+                        n_hosts=room['n_hosts'],
+                        dc_id=room['datacenter_id']
+                    )
+                
+                # Add updated_at to be updated
+                update_parts.append("updated_at = CURRENT_TIMESTAMP")
+                
+                # Build and execute update query
+                query = f"UPDATE rooms SET {', '.join(update_parts)} WHERE id = %s RETURNING *"
+                params.append(room_id)
+                
+                cursor.execute(query, params)
+                conn.commit()
+                
+                updated_room = cursor.fetchone()
+                
+                # Create and return updated Room object
+                return Room(
+                    id=updated_room['id'],
+                    name=updated_room['name'],
+                    height=updated_room['height'],
+                    racks=updated_room['racks'],
+                    n_racks=updated_room['n_racks'],
+                    n_hosts=updated_room['n_hosts'],
+                    dc_id=room['datacenter_id']
+                )
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    def deleteRoom(self, room_id):
+        """
+        Delete a room from the database.
+        
+        Args:
+            room_id (str): ID of the room to delete
+        
+        Returns:
+            bool: True if room was successfully deleted, False if not found
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # First check if room exists
+                cursor.execute("SELECT id FROM rooms WHERE id = %s", (room_id,))
+                if cursor.fetchone() is None:
+                    return False
+                
+                # Check if room has any racks (optional: prevent deletion if it has dependencies)
+                cursor.execute("SELECT COUNT(*) FROM racks WHERE room_id = %s", (room_id,))
+                rack_count = cursor.fetchone()[0]
+                
+                if rack_count > 0:
+                    # You may want to raise a custom exception here instead
+                    # to indicate that the room has dependencies
+                    raise Exception(f"Cannot delete room with ID {room_id} because it contains {rack_count} racks")
+                
+                # Delete the room
+                cursor.execute("DELETE FROM rooms WHERE id = %s", (room_id,))
+                conn.commit()
+                
+                # Check if any rows were affected
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    # Rack operations
+    
+if __name__ == '__main__':
+    test_connection()
