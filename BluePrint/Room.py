@@ -1,9 +1,9 @@
 from flask import Blueprint, request
-from db import database
+from db.database import DatacenterManager
 from utils import schema
 from Rack import DeleteRack
 
-DBmanager = database.DatacenterManager()
+DBmanager = DatacenterManager()
 ROOM_BLUEPRINT = Blueprint('room', __name__)
 
 #complete

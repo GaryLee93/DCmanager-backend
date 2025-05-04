@@ -1,28 +1,37 @@
+from simpleSchema import SimpleDataCenter, SimpleRoom, SimpleRack, SimpleHost, SimpleService
+
+class IP_range:
+    def __init__(self, start_IP: str, end_IP: str):
+        self.start_IP = start_IP
+        self.end_IP = end_IP
+
 class DataCenter:
     def __init__(self, 
                  id: str, 
                  name: str, 
-                 default_height: int,
-                 rooms: list,
+                 height: int,
                  n_rooms: int,
+                 rooms: list[SimpleRoom],
                  n_racks: int,
-                 n_hosts: int
+                 n_hosts: int,
+                 ip_ranges: list[IP_range]
                 ):
         self.id = id
         self.name = name
-        self.default_height = default_height
-        self.rooms = rooms
+        self.default_height = height
         self.n_rooms = n_rooms
+        self.rooms = rooms
         self.n_racks = n_racks
         self.n_hosts = n_hosts
+        self.ip_ranges = ip_ranges
 
 class Room:
     def __init__(self, 
                  id: str, 
                  name: str, 
-                 height: int, 
-                 racks: list,
+                 height: int,
                  n_racks: int,
+                 racks: list[SimpleRack],
                  n_hosts: int,
                  dc_id: str
                 ):
@@ -39,8 +48,9 @@ class Rack:
                  id: str, 
                  name: str, 
                  height: int, 
-                 hosts: list,
+                 capacity: int,
                  n_hosts: int,
+                 hosts: list[SimpleHost],
                  service_id: str,
                  dc_id: str,
                  room_id: str
@@ -48,8 +58,9 @@ class Rack:
         self.id = id
         self.name = name
         self.height = height
-        self.hosts = hosts
+        self.capacity = capacity
         self.n_hosts = n_hosts
+        self.hosts = hosts
         self.service_id = service_id
         self.dc_id = dc_id
         self.room_id = room_id
@@ -60,41 +71,41 @@ class Host:
                  name: str,
                  height: int,
                  ip: str, 
+                 status: str,
                  service_id: str,
                  dc_id: str,
                  room_id: str,
-                 rack_id: str
+                 rack_id: str,
+                 pos: int
                 ):
         self.id = id
         self.name = name
         self.height = height
         self.ip = ip
+        self.status = status
         self.service_id = service_id
         self.dc_id = dc_id
         self.room_id = room_id
         self.rack_id = rack_id
-
-class IP_Subnet:
-    def __init__(self, 
-                 ip: str,
-                 mask: int
-                ):
-        self.ip = ip
-        self.mask = mask
+        self.pos = pos
 
 class Service:
     def __init__(self, 
                  id: str, 
-                 name: str, 
-                 racks: str,
+                 name: str,
                  n_racks: int,
-                 subnet: IP_Subnet
+                 racks: list[SimpleRack],
+                 n_hosts: int,
+                 taoal_ip: int,
+                 ip_list: list[str]
                 ):
         self.id = id
         self.name = name
         self.racks = racks
         self.n_racks = n_racks
-        self.subnet = subnet
+        self.n_hosts = n_hosts
+        self.taoal_ip = taoal_ip
+        self.ip_list = ip_list
 
 class User:
     def __init__(self,
@@ -107,7 +118,3 @@ class User:
         self.username = username
         self.password = password
         self.role = role
-
-class Company_IP_Subnets:
-    def __init__(self, ip_subnets: list):
-        self.ip_subnets = ip_subnets
