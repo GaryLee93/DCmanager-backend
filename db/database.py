@@ -76,7 +76,7 @@ class DatacenterManager:
                     return DataCenter(
                         id=data['id'],
                         name=data['name'],
-                        default_height=data['default_height'],
+                        height=data['default_height'],
                         rooms=rooms,
                         n_rooms=data['n_rooms'],
                         n_racks=data['n_racks'],
@@ -101,7 +101,7 @@ class DatacenterManager:
                             DataCenter(
                                 id=data['id'],
                                 name=data['name'],
-                                default_height=data['default_height'],
+                                height=data['default_height'],
                                 rooms=rooms,
                                 n_rooms=data['n_rooms'],
                                 n_racks=data['n_racks'],
@@ -156,7 +156,7 @@ class DatacenterManager:
                     return DataCenter(
                         id=new_datacenter['id'],
                         name=new_datacenter['name'],
-                        default_height=new_datacenter['default_height'],
+                        height=new_datacenter['default_height'],
                         rooms=[],  # New datacenter has no rooms yet
                         n_rooms=new_datacenter['n_rooms'],
                         n_racks=new_datacenter['n_racks'],
@@ -216,7 +216,7 @@ class DatacenterManager:
                     return DataCenter(
                         id=datacenter['id'],
                         name=datacenter['name'],
-                        default_height=datacenter['default_height'],
+                        height=datacenter['default_height'],
                         rooms=rooms,
                         n_rooms=datacenter['n_rooms'],
                         n_racks=datacenter['n_racks'],
@@ -243,7 +243,7 @@ class DatacenterManager:
                 return DataCenter(
                     id=updated_datacenter['id'],
                     name=updated_datacenter['name'],
-                    default_height=updated_datacenter['default_height'],
+                    height=updated_datacenter['default_height'],
                     rooms=rooms,
                     n_rooms=updated_datacenter['n_rooms'],
                     n_racks=updated_datacenter['n_racks'],
