@@ -181,97 +181,49 @@ class DatacenterManager:
         pool.putconn(conn)
 
     # Datacenter operations
-    def getDatacenter(self, datacenter_id=None):
+    def getDatacenter(self, datacenter_id):
         """
         Get datacenters information.
-        If datacenter_id is provided, returns specific datacenter as DataCenter object,
-        otherwise returns list of DataCenter objects.
-        Returns None if datacenter_id is provided but not found.
         """
         conn = None
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                if datacenter_id:
-                    # Get the specific datacenter
-                    cursor.execute("SELECT * FROM datacenters WHERE id = %s", (datacenter_id,))
-                    data = cursor.fetchone()
-                    if not data:
-                        return None
-                    
-                    # Get rooms for this datacenter
-                    cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
-                    rooms_data = cursor.fetchall()
-                    
-                    # Convert to SimpleRoom objects
-                    rooms = []
-                    for room_data in rooms_data:
-                        room = SimpleRoom(
-                            id=room_data['id'],
-                            name=room_data['name'],
-                            datacenter_id=room_data['datacenter_id']
-                        )
-                        rooms.append(room)
-                    
-                    # Get IP ranges for this datacenter
-                    ip_range_manager = IPRangeManager()
-                    ip_ranges = ip_range_manager.get_ip_ranges(datacenter_id)
-                    
-                    # Create and return a DataCenter object
-                    return DataCenter(
-                        id=data['id'],
-                        name=data['name'],
-                        height=data['default_height'],
-                        rooms=rooms,
-                        n_rooms=data['n_rooms'],
-                        n_racks=data['n_racks'],
-                        n_hosts=data['n_hosts'],
-                        ip_ranges=ip_ranges
+                # Get the specific datacenter
+                cursor.execute("SELECT * FROM datacenters WHERE id = %s", (datacenter_id,))
+                data = cursor.fetchone()
+                if not data:
+                    return None
+                
+                # Get rooms for this datacenter
+                cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                rooms_data = cursor.fetchall()
+                
+                # Convert to SimpleRoom objects
+                rooms = []
+                for room_data in rooms_data:
+                    room = SimpleRoom(
+                        id=room_data['id'],
+                        name=room_data['name'],
+                        datacenter_id=room_data['datacenter_id']
                     )
-                else:
-                    # Get all datacenters
-                    cursor.execute("SELECT * FROM datacenters ORDER BY name")
-                    datacenters_data = cursor.fetchall()
-                    
-                    # Create a list to store DataCenter objects
-                    datacenters = []
-                    
-                    # Process each datacenter
-                    for data in datacenters_data:
-                        dc_id = data['id']
-                        # Get rooms for this datacenter
-                        cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (dc_id,))
-                        rooms_data = cursor.fetchall()
-                        
-                        # Convert to SimpleRoom objects
-                        rooms = []
-                        for room_data in rooms_data:
-                            room = SimpleRoom(
-                                id=room_data['id'],
-                                name=room_data['name'],
-                                datacenter_id=room_data['datacenter_id']
-                            )
-                            rooms.append(room)
-                        
-                        # Get IP ranges for this datacenter
-                        ip_range_manager = IPRangeManager()
-                        ip_ranges = ip_range_manager.get_ip_ranges(dc_id)
-                        
-                        # Create DataCenter object and append to list
-                        datacenters.append(
-                            DataCenter(
-                                id=data['id'],
-                                name=data['name'],
-                                height=data['default_height'],
-                                rooms=rooms,
-                                n_rooms=data['n_rooms'],
-                                n_racks=data['n_racks'],
-                                n_hosts=data['n_hosts'],
-                                ip_ranges=ip_ranges
-                            )
-                        )
-                    
-                    return datacenters
+                    rooms.append(room)
+                
+                # Get IP ranges for this datacenter
+                ip_range_manager = IPRangeManager()
+                ip_ranges = ip_range_manager.get_ip_ranges(datacenter_id)
+                
+                # Create and return a DataCenter object
+                return DataCenter(
+                    id=data['id'],
+                    name=data['name'],
+                    height=data['default_height'],
+                    rooms=rooms,
+                    n_rooms=data['n_rooms'],
+                    n_racks=data['n_racks'],
+                    n_hosts=data['n_hosts'],
+                    ip_ranges=ip_ranges
+                )
         except Exception as e:
             if conn:
                 conn.rollback()
@@ -498,6 +450,7 @@ class DatacenterManager:
         finally:
             if conn:
                 self.release_connection(conn)
+
     def getAllDatacenters(self):
         """
         Get all datacenters.
@@ -682,14 +635,12 @@ class RoomManager:
                     
                     # Get racks for this room
                     cursor.execute("SELECT id FROM racks WHERE room_id = %s", (room_id,))
-                    rack_ids = [row[0] for row in cursor.fetchall()]
                     
                     # Create Room object
-                    room = Room(
-                        id=room_id,
+                    room = SimpleRoom(
+                        id=result[0],
                         name=result[1],
                         height=result[2],
-                        racks=rack_ids,
                         n_racks=result[3],
                         n_hosts=result[4],
                         dc_id=result[5]
@@ -1482,44 +1433,6 @@ class HostManager:
                 cursor.execute(
                     "SELECT id, name, height, ip, service_id, datacenter_id, room_id, rack_id FROM hosts WHERE service_id = %s",
                     (service_id,)
-                )
-                results = cursor.fetchall()
-                
-                hosts = []
-                for result in results:
-                    host = Host(
-                        id=result[0],
-                        name=result[1],
-                        height=result[2],
-                        ip=result[3],
-                        service_id=result[4],
-                        dc_id=result[5],
-                        room_id=result[6],
-                        rack_id=result[7]
-                    )
-                    hosts.append(host)
-                
-                return hosts
-                
-        except Exception as e:
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-    
-    def getAllHosts(self):
-        """
-        Get all hosts.
-        
-        Returns:
-            list: List of Host objects
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT id, name, height, ip, service_id, datacenter_id, room_id, rack_id FROM hosts"
                 )
                 results = cursor.fetchall()
                 
