@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE datacenters (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
-    default_height INTEGER,
+    height INTEGER NOT NULL, -- Height of the datacenter
     n_rooms INTEGER DEFAULT 0, -- Number of rooms in the datacenter
     n_racks INTEGER DEFAULT 0, -- Number of racks in the datacenter
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the datacenter
@@ -30,24 +30,26 @@ CREATE TABLE rooms (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table for racks, linked to rooms and datacenters
+-- Table for services
+CREATE TABLE services (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL, -- Name of the service
+    n_racks INTEGER DEFAULT 0, -- Number of racks assigned to service
+    n_hosts INTEGER DEFAULT 0, -- Number of hosts in the service
+    total_ip INTEGER DEFAULT 0, -- Total IPs allocated to this service
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for racks, linked to rooms, datacenters, and services
 CREATE TABLE racks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     height INTEGER NOT NULL, -- Height of the rack
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the rack
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT height_check CHECK (height >= 18) -- Ensure rack height is at least 18
-);
-
--- Table for IP subnets
-CREATE TABLE ip_subnets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    ip CIDR NOT NULL, -- IP range in CIDR format
-    mask INTEGER NOT NULL CHECK (mask >= 0 AND mask <= 32), -- Subnet mask validation
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -62,11 +64,12 @@ CREATE TABLE company_ip_ranges (
     CONSTRAINT valid_range CHECK (start_ip <= end_ip) -- Ensure start IP is less than or equal to end IP
 );
 
--- Table for services, linked to IP subnets
-CREATE TABLE services (
+-- Table for service IPs
+CREATE TABLE service_ips (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL, -- Name of the service
-    subnet_id UUID REFERENCES ip_subnets(id) ON DELETE SET NULL, -- Foreign key to IP subnets
+    ip INET NOT NULL, -- IP address
+    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE, -- Foreign key to services
+    assigned BOOLEAN DEFAULT FALSE, -- Whether this IP is assigned to a host
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -81,10 +84,10 @@ CREATE TABLE hosts (
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
     rack_id UUID NOT NULL REFERENCES racks(id) ON DELETE CASCADE, -- Foreign key to racks
-    rack_position INTEGER NOT NULL, -- Position of the host in the rack
+    pos INTEGER NOT NULL, -- Position of the host in the rack
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_rack_position UNIQUE (rack_id, rack_position) -- Ensure unique position in the rack
+    CONSTRAINT unique_rack_position UNIQUE (rack_id, pos) -- Ensure unique position in the rack
 );
 
 -- Table for users, with permissions
@@ -92,17 +95,9 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(255) NOT NULL UNIQUE, -- Unique username
     password VARCHAR(255) NOT NULL, -- Password (hashed)
-    permission VARCHAR(50) NOT NULL CHECK (permission IN ('normal', 'manager')), -- User role
+    role VARCHAR(50) NOT NULL CHECK (role IN ('normal', 'manager')), -- User role (changed from permission to role)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Table for mapping services to hosts
-CREATE TABLE service_racks (
-    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-    rack_id UUID NOT NULL REFERENCES racks(id) ON DELETE CASCADE,
-    PRIMARY KEY (service_id, rack_id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 ------------------------------------------------------------
@@ -117,7 +112,7 @@ DECLARE
 BEGIN
     SELECT height INTO room_height FROM rooms WHERE id = NEW.room_id;
     IF NEW.height > room_height THEN
-        RAISE EXCEPTION 'racks height must not exceed rooms height (racks height: %, rooms height: %)', NEW.height, room_height;
+        RAISE EXCEPTION 'rack height must not exceed room height (rack height: %, room height: %)', NEW.height, room_height;
     END IF;
     RETURN NEW;
 END;
@@ -170,7 +165,7 @@ CREATE TRIGGER racks_after_insert_update_delete
 AFTER INSERT OR UPDATE OR DELETE ON racks
 FOR EACH ROW EXECUTE FUNCTION update_room_rack_count();
 
--- Additional functions and triggers follow similar patterns...
+-- Function to update the number of hosts in a room
 CREATE OR REPLACE FUNCTION update_room_host_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -186,10 +181,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Trigger to update room host count after insert, update, or delete on hosts
 CREATE TRIGGER hosts_room_after_insert_update_delete
 AFTER INSERT OR UPDATE OR DELETE ON hosts
 FOR EACH ROW EXECUTE FUNCTION update_room_host_count();
 
+-- Function to update the number of rooms in a datacenter
 CREATE OR REPLACE FUNCTION update_dc_room_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -205,10 +202,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Trigger to update datacenter room count after insert, update, or delete on rooms
 CREATE TRIGGER rooms_after_insert_update_delete
 AFTER INSERT OR UPDATE OR DELETE ON rooms
 FOR EACH ROW EXECUTE FUNCTION update_dc_room_count();
 
+-- Function to update datacenter counts
 CREATE OR REPLACE FUNCTION update_dc_counts()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -219,33 +218,143 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- sync datacenter counts after any change in hosts or racks
+-- Sync datacenter counts after any change in hosts or racks
 CREATE TRIGGER sync_dc_counts
 AFTER INSERT OR UPDATE OR DELETE ON hosts
 FOR EACH STATEMENT EXECUTE FUNCTION update_dc_counts();
 
--- if a rack's room changes, update the hosts' room_id
--- In theory, this should not be need, because ID shoud not change
-CREATE OR REPLACE FUNCTION update_hosts_room_id()
+-- Function to update service rack count
+CREATE OR REPLACE FUNCTION update_service_rack_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF TG_OP = 'UPDATE' AND OLD.room_id != NEW.room_id THEN
-        UPDATE hosts SET room_id = NEW.room_id WHERE rack_id = NEW.id;
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.service_id IS NOT NULL AND (OLD.service_id IS NULL OR OLD.service_id != NEW.service_id) THEN
+            UPDATE services SET n_racks = n_racks + 1 WHERE id = NEW.service_id;
+        END IF;
+        IF OLD.service_id IS NOT NULL AND (NEW.service_id IS NULL OR OLD.service_id != NEW.service_id) THEN
+            UPDATE services SET n_racks = n_racks - 1 WHERE id = OLD.service_id;
+        END IF;
+    ELSIF TG_OP = 'INSERT' AND NEW.service_id IS NOT NULL THEN
+        UPDATE services SET n_racks = n_racks + 1 WHERE id = NEW.service_id;
+    ELSIF TG_OP = 'DELETE' AND OLD.service_id IS NOT NULL THEN
+        UPDATE services SET n_racks = n_racks - 1 WHERE id = OLD.service_id;
     END IF;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER rack_room_change_trigger
-AFTER UPDATE ON racks
-FOR EACH ROW EXECUTE FUNCTION update_hosts_room_id();
+-- Trigger to update service rack count after insert, update, or delete on racks
+CREATE TRIGGER racks_service_after_insert_update_delete
+AFTER INSERT OR UPDATE OR DELETE ON racks
+FOR EACH ROW EXECUTE FUNCTION update_service_rack_count();
 
--- create indexes for faster lookups
+-- Function to update service host count
+CREATE OR REPLACE FUNCTION update_service_host_count()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.service_id IS NOT NULL AND (OLD.service_id IS NULL OR OLD.service_id != NEW.service_id) THEN
+            UPDATE services SET n_hosts = n_hosts + 1 WHERE id = NEW.service_id;
+        END IF;
+        IF OLD.service_id IS NOT NULL AND (NEW.service_id IS NULL OR OLD.service_id != NEW.service_id) THEN
+            UPDATE services SET n_hosts = n_hosts - 1 WHERE id = OLD.service_id;
+        END IF;
+    ELSIF TG_OP = 'INSERT' AND NEW.service_id IS NOT NULL THEN
+        UPDATE services SET n_hosts = n_hosts + 1 WHERE id = NEW.service_id;
+    ELSIF TG_OP = 'DELETE' AND OLD.service_id IS NOT NULL THEN
+        UPDATE services SET n_hosts = n_hosts - 1 WHERE id = OLD.service_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to update service host count after insert, update, or delete on hosts
+CREATE TRIGGER hosts_service_after_insert_update_delete
+AFTER INSERT OR UPDATE OR DELETE ON hosts
+FOR EACH ROW EXECUTE FUNCTION update_service_host_count();
+
+-- Function to verify IP assignment to hosts
+CREATE OR REPLACE FUNCTION verify_ip_assignment()
+RETURNS TRIGGER AS $$
+DECLARE
+    ip_service_id UUID;
+BEGIN
+    IF NEW.ip IS NOT NULL THEN
+        -- Check if IP exists in service_ips
+        SELECT service_id INTO ip_service_id FROM service_ips 
+        WHERE ip = NEW.ip AND assigned = FALSE;
+        
+        IF ip_service_id IS NULL THEN
+            RAISE EXCEPTION 'IP address % is not available for assignment', NEW.ip;
+        END IF;
+        
+        IF NEW.service_id IS NULL OR NEW.service_id != ip_service_id THEN
+            RAISE EXCEPTION 'IP address % does not belong to the specified service', NEW.ip;
+        END IF;
+        
+        -- Mark IP as assigned
+        UPDATE service_ips SET assigned = TRUE WHERE ip = NEW.ip;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to verify IP assignment before insert or update on hosts
+CREATE TRIGGER before_host_ip_assignment
+BEFORE INSERT OR UPDATE OF ip ON hosts
+FOR EACH ROW WHEN (NEW.ip IS NOT NULL)
+EXECUTE FUNCTION verify_ip_assignment();
+
+-- Function to free IP when host is deleted or IP is changed
+CREATE OR REPLACE FUNCTION free_ip()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'DELETE' AND OLD.ip IS NOT NULL THEN
+        UPDATE service_ips SET assigned = FALSE WHERE ip = OLD.ip;
+    ELSIF TG_OP = 'UPDATE' AND OLD.ip IS NOT NULL AND (NEW.ip IS NULL OR OLD.ip != NEW.ip) THEN
+        UPDATE service_ips SET assigned = FALSE WHERE ip = OLD.ip;
+    END IF;
+    
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to free IP after delete or update on hosts
+CREATE TRIGGER after_host_ip_change
+AFTER DELETE OR UPDATE OF ip ON hosts
+FOR EACH ROW EXECUTE FUNCTION free_ip();
+
+-- Function to set host service_id based on rack's service_id if not specified
+CREATE OR REPLACE FUNCTION set_host_service_id()
+RETURNS TRIGGER AS $$
+DECLARE
+    rack_service_id UUID;
+BEGIN
+    IF NEW.service_id IS NULL THEN
+        SELECT service_id INTO rack_service_id FROM racks WHERE id = NEW.rack_id;
+        IF rack_service_id IS NOT NULL THEN
+            NEW.service_id := rack_service_id;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to set host service_id before insert or update
+CREATE TRIGGER before_host_service_id
+BEFORE INSERT OR UPDATE ON hosts
+FOR EACH ROW EXECUTE FUNCTION set_host_service_id();
+
+-- Create indexes for faster lookups
 CREATE INDEX idx_rooms_dc_id ON rooms(dc_id);
 CREATE INDEX idx_racks_room_id ON racks(room_id);
 CREATE INDEX idx_racks_dc_id ON racks(dc_id);
+CREATE INDEX idx_racks_service_id ON racks(service_id);
 CREATE INDEX idx_hosts_room_id ON hosts(room_id);
+CREATE INDEX idx_hosts_rack_id ON hosts(rack_id);
 CREATE INDEX idx_hosts_dc_id ON hosts(dc_id);
 CREATE INDEX idx_hosts_service_id ON hosts(service_id);
-CREATE INDEX idx_service_hosts_service_id ON service_hosts(service_id);
-CREATE INDEX idx_service_hosts_host_id ON service_hosts(host_id);
+CREATE INDEX idx_service_ips_service_id ON service_ips(service_id);
+CREATE INDEX idx_service_ips_ip ON service_ips(ip);

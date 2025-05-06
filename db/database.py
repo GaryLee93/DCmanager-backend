@@ -9,8 +9,8 @@ import psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from datetime import datetime
 import uuid
-from utils.schema import DataCenter, Room, Rack, Host, Service, IP_Subnet, User, Company_IP_Subnets
-
+from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, IP_Subnet, User, Company_IP_Subnets
+from utils.schema import SimpleRoom, SimpleRack, SimpleHost, SimpleService
 # Database connection configuration
 DB_CONFIG = {
     'dbname': os.environ.get('DB_NAME', 'datacenter_management'),
@@ -35,6 +35,356 @@ def test_connection():
 
 # Create a connection pool
 pool = SimpleConnectionPool(1, 10, **DB_CONFIG)
+
+# new schema
+class IPRangeManager:
+    """Class for managing IP ranges operations"""
+    
+    @staticmethod
+    def get_connection():
+        """Get a connection from the pool"""
+        return pool.getconn()
+    
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)
+    
+    def get_ip_ranges(self, datacenter_id=None):
+        """
+        Get IP ranges for a datacenter.
+        If datacenter_id is provided, returns IP ranges for that specific datacenter,
+        otherwise returns all IP ranges.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                if datacenter_id:
+                    cursor.execute("SELECT * FROM ip_ranges WHERE datacenter_id = %s", (datacenter_id,))
+                else:
+                    cursor.execute("SELECT * FROM ip_ranges")
+                
+                ip_ranges_data = cursor.fetchall()
+                
+                # Convert to IP_range objects
+                ip_ranges = []
+                for data in ip_ranges_data:
+                    ip_range = IP_range(
+                        start_IP=data['start_ip'],
+                        end_IP=data['end_ip']
+                    )
+                    ip_ranges.append(ip_range)
+                
+                return ip_ranges
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+                
+    def deleteDatacenter(self, datacenter_id):
+        """
+        Delete a datacenter from the database.
+        
+        Args:
+            datacenter_id (str): ID of the datacenter to delete
+        
+        Returns:
+            bool: True if datacenter was successfully deleted, False if not found
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # First check if datacenter exists
+                cursor.execute("SELECT id FROM datacenters WHERE id = %s", (datacenter_id,))
+                if cursor.fetchone() is None:
+                    return False
+                
+                # Check if datacenter has any rooms
+                cursor.execute("SELECT COUNT(*) FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                room_count = cursor.fetchone()[0]
+                
+                if room_count > 0:
+                    raise Exception(f"Cannot delete datacenter with ID {datacenter_id} because it contains {room_count} rooms")
+                
+                # Delete associated IP ranges first
+                cursor.execute("DELETE FROM ip_ranges WHERE datacenter_id = %s", (datacenter_id,))
+                
+                # Delete the datacenter
+                cursor.execute("DELETE FROM datacenters WHERE id = %s", (datacenter_id,))
+                conn.commit()
+                
+                # Check if any rows were affected
+                return cursor.rowcount > 0
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+                
+    def updateDatacenter(self, datacenter_id, name=None, default_height=None, ip_ranges=None):
+        """
+        Update an existing datacenter in the database.
+        
+        Args:
+            datacenter_id (str): ID of the datacenter to update
+            name (str, optional): New name for the datacenter
+            default_height (int, optional): New default rack height for the datacenter
+            ip_ranges (list[IP_range], optional): New IP ranges for the datacenter
+        
+        Returns:
+            DataCenter: Updated DataCenter object
+            None: If datacenter not found or update fails
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # First check if datacenter exists
+                cursor.execute("SELECT * FROM datacenters WHERE id = %s", (datacenter_id,))
+                datacenter = cursor.fetchone()
+                if not datacenter:
+                    return None
+                
+                # Prepare update query parts
+                update_parts = []
+                params = []
+                
+                if name is not None:
+                    update_parts.append("name = %s")
+                    params.append(name)
+                    
+                if default_height is not None:
+                    update_parts.append("default_height = %s")
+                    params.append(default_height)
+                
+                # If no database updates requested but ip_ranges provided, 
+                # we'll still need to process IP ranges
+                if update_parts:
+                    # Add updated_at to be updated
+                    update_parts.append("updated_at = CURRENT_TIMESTAMP")
+                    
+                    # Build and execute update query
+                    query = f"UPDATE datacenters SET {', '.join(update_parts)} WHERE id = %s RETURNING *"
+                    params.append(datacenter_id)
+                    
+                    cursor.execute(query, params)
+                    conn.commit()
+                    
+                    updated_datacenter = cursor.fetchone()
+                else:
+                    updated_datacenter = datacenter
+                
+                # Get rooms for this datacenter
+                cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                rooms_data = cursor.fetchall()
+                
+                # Convert to SimpleRoom objects
+                rooms = []
+                for room_data in rooms_data:
+                    room = SimpleRoom(
+                        id=room_data['id'],
+                        name=room_data['name'],
+                        datacenter_id=room_data['datacenter_id']
+                    )
+                    rooms.append(room)
+                
+                # Handle IP ranges if provided
+                ip_range_manager = IPRangeManager()
+                if ip_ranges is not None:
+                    # Delete existing IP ranges for this datacenter
+                    cursor.execute("DELETE FROM ip_ranges WHERE datacenter_id = %s", (datacenter_id,))
+                    conn.commit()
+                    
+                    # Add new IP ranges
+                    ip_range_objects = []
+                    for ip_range in ip_ranges:
+                        added_range = ip_range_manager.add_ip_range(
+                            datacenter_id, 
+                            ip_range.start_IP, 
+                            ip_range.end_IP
+                        )
+                        ip_range_objects.append(added_range)
+                else:
+                    # Get existing IP ranges
+                    ip_range_objects = ip_range_manager.get_ip_ranges(datacenter_id)
+                
+                # Create and return updated DataCenter object
+                return DataCenter(
+                    id=updated_datacenter['id'],
+                    name=updated_datacenter['name'],
+                    height=updated_datacenter['default_height'],
+                    rooms=rooms,
+                    n_rooms=updated_datacenter['n_rooms'],
+                    n_racks=updated_datacenter['n_racks'],
+                    n_hosts=updated_datacenter['n_hosts'],
+                    ip_ranges=ip_range_objects
+                )
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+                
+    def createDatacenter(self, name, default_height=42, ip_ranges=None):
+        """
+        Create a new datacenter in the database.
+        
+        Args:
+            name (str): Name of the datacenter
+            default_height (int, optional): Default rack height for the datacenter. Defaults to 42.
+            ip_ranges (list[IP_range], optional): IP ranges for the datacenter. Defaults to None.
+        
+        Returns:
+            DataCenter: A DataCenter object representing the newly created datacenter.
+            None: If creation fails
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Insert the new datacenter
+                cursor.execute(
+                    """
+                    INSERT INTO datacenters (name, default_height, n_rooms, n_racks, n_hosts)
+                    VALUES (%s, %s, 0, 0, 0)
+                    RETURNING id, name, default_height, n_rooms, n_racks, n_hosts
+                    """,
+                    (name, default_height)
+                )
+                
+                # Commit the transaction
+                conn.commit()
+                
+                # Get the newly created datacenter data
+                new_datacenter = cursor.fetchone()
+                
+                if not new_datacenter:
+                    return None
+                
+                # Add IP ranges if provided
+                ip_range_objects = []
+                if ip_ranges and len(ip_ranges) > 0:
+                    ip_range_manager = IPRangeManager()
+                    for ip_range in ip_ranges:
+                        added_range = ip_range_manager.add_ip_range(
+                            new_datacenter['id'], 
+                            ip_range.start_IP, 
+                            ip_range.end_IP
+                        )
+                        ip_range_objects.append(added_range)
+                
+                # Create and return a DataCenter object
+                return DataCenter(
+                    id=new_datacenter['id'],
+                    name=new_datacenter['name'],
+                    height=new_datacenter['default_height'],
+                    rooms=[],  # New datacenter has no rooms yet
+                    n_rooms=new_datacenter['n_rooms'],
+                    n_racks=new_datacenter['n_racks'],
+                    n_hosts=new_datacenter['n_hosts'],
+                    ip_ranges=ip_range_objects
+                )
+                
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def add_ip_range(self, datacenter_id, start_ip, end_ip):
+        """
+        Add a new IP range to a datacenter.
+        
+        Args:
+            datacenter_id (str): ID of the datacenter
+            start_ip (str): Start IP address
+            end_ip (str): End IP address
+            
+        Returns:
+            IP_range: The newly created IP range object
+        """
+        # Validate IP addresses
+        try:
+            import ipaddress
+            start = ipaddress.ip_address(start_ip)
+            end = ipaddress.ip_address(end_ip)
+            if start > end:
+                raise ValueError("Start IP must be less than or equal to End IP")
+        except ValueError as e:
+            raise ValueError(f"Invalid IP address format: {e}")
+            
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Check if datacenter exists
+                cursor.execute("SELECT id FROM datacenters WHERE id = %s", (datacenter_id,))
+                if cursor.fetchone() is None:
+                    raise ValueError(f"Datacenter with ID {datacenter_id} not found")
+                
+                # Insert the new IP range
+                cursor.execute(
+                    """
+                    INSERT INTO ip_ranges (datacenter_id, start_ip, end_ip)
+                    VALUES (%s, %s, %s)
+                    RETURNING id, datacenter_id, start_ip, end_ip
+                    """,
+                    (datacenter_id, start_ip, end_ip)
+                )
+                
+                conn.commit()
+                new_ip_range = cursor.fetchone()
+                
+                return IP_range(
+                    start_IP=new_ip_range['start_ip'],
+                    end_IP=new_ip_range['end_ip']
+                )
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+    
+    def delete_ip_range(self, ip_range_id):
+        """
+        Delete an IP range.
+        
+        Args:
+            ip_range_id (str): ID of the IP range to delete
+            
+        Returns:
+            bool: True if deleted successfully, False if not found
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM ip_ranges WHERE id = %s", (ip_range_id,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+
 
 class DatacenterManager:
     """Class for managing datacenter operations"""
@@ -70,7 +420,21 @@ class DatacenterManager:
                     
                     # Get rooms for this datacenter
                     cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
-                    rooms = cursor.fetchall()
+                    rooms_data = cursor.fetchall()
+                    
+                    # Convert to SimpleRoom objects
+                    rooms = []
+                    for room_data in rooms_data:
+                        room = SimpleRoom(
+                            id=room_data['id'],
+                            name=room_data['name'],
+                            datacenter_id=room_data['datacenter_id']
+                        )
+                        rooms.append(room)
+                    
+                    # Get IP ranges for this datacenter
+                    ip_range_manager = IPRangeManager()
+                    ip_ranges = ip_range_manager.get_ip_ranges(datacenter_id)
                     
                     # Create and return a DataCenter object
                     return DataCenter(
@@ -80,7 +444,8 @@ class DatacenterManager:
                         rooms=rooms,
                         n_rooms=data['n_rooms'],
                         n_racks=data['n_racks'],
-                        n_hosts=data['n_hosts']
+                        n_hosts=data['n_hosts'],
+                        ip_ranges=ip_ranges
                     )
                 else:
                     # Get all datacenters
@@ -92,9 +457,24 @@ class DatacenterManager:
                     
                     # Process each datacenter
                     for data in datacenters_data:
+                        dc_id = data['id']
                         # Get rooms for this datacenter
-                        cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (data['id'],))
-                        rooms = cursor.fetchall()
+                        cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (dc_id,))
+                        rooms_data = cursor.fetchall()
+                        
+                        # Convert to SimpleRoom objects
+                        rooms = []
+                        for room_data in rooms_data:
+                            room = SimpleRoom(
+                                id=room_data['id'],
+                                name=room_data['name'],
+                                datacenter_id=room_data['datacenter_id']
+                            )
+                            rooms.append(room)
+                        
+                        # Get IP ranges for this datacenter
+                        ip_range_manager = IPRangeManager()
+                        ip_ranges = ip_range_manager.get_ip_ranges(dc_id)
                         
                         # Create DataCenter object and append to list
                         datacenters.append(
@@ -105,7 +485,8 @@ class DatacenterManager:
                                 rooms=rooms,
                                 n_rooms=data['n_rooms'],
                                 n_racks=data['n_racks'],
-                                n_hosts=data['n_hosts']
+                                n_hosts=data['n_hosts'],
+                                ip_ranges=ip_ranges
                             )
                         )
                     
@@ -119,189 +500,8 @@ class DatacenterManager:
                 self.release_connection(conn)
 
 
-    def createDatacenter(self, name, default_height=42):
-        """
-        Create a new datacenter in the database.
-        
-        Args:
-            name (str): Name of the datacenter
-            default_height (int, optional): Default rack height for the datacenter. Defaults to 42.
-        
-        Returns:
-            DataCenter: A DataCenter object representing the newly created datacenter.
-            None: If creation fails
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # Insert the new datacenter
-                cursor.execute(
-                    """
-                    INSERT INTO datacenters (name, default_height, n_rooms, n_racks, n_hosts)
-                    VALUES (%s, %s, 0, 0, 0)
-                    RETURNING id, name, default_height, n_rooms, n_racks, n_hosts
-                    """,
-                    (name, default_height)
-                )
-                
-                # Commit the transaction
-                conn.commit()
-                
-                # Get the newly created datacenter data
-                new_datacenter = cursor.fetchone()
-                
-                if new_datacenter:
-                    # Create and return a DataCenter object
-                    return DataCenter(
-                        id=new_datacenter['id'],
-                        name=new_datacenter['name'],
-                        height=new_datacenter['default_height'],
-                        rooms=[],  # New datacenter has no rooms yet
-                        n_rooms=new_datacenter['n_rooms'],
-                        n_racks=new_datacenter['n_racks'],
-                        n_hosts=new_datacenter['n_hosts']
-                    )
-                return None
-                
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-
-    def updateDatacenter(self, datacenter_id, name=None, default_height=None):
-        """
-        Update an existing datacenter in the database.
-        
-        Args:
-            datacenter_id (str): ID of the datacenter to update
-            name (str, optional): New name for the datacenter
-            default_height (int, optional): New default rack height for the datacenter
-        
-        Returns:
-            DataCenter: Updated DataCenter object
-            None: If datacenter not found or update fails
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                # First check if datacenter exists
-                cursor.execute("SELECT * FROM datacenters WHERE id = %s", (datacenter_id,))
-                datacenter = cursor.fetchone()
-                if not datacenter:
-                    return None
-                
-                # Prepare update query parts
-                update_parts = []
-                params = []
-                
-                if name is not None:
-                    update_parts.append("name = %s")
-                    params.append(name)
-                    
-                if default_height is not None:
-                    update_parts.append("default_height = %s")
-                    params.append(default_height)
-                
-                # If no updates requested, return the existing datacenter
-                if not update_parts:
-                    # Get rooms for this datacenter
-                    cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
-                    rooms = cursor.fetchall()
-                    
-                    return DataCenter(
-                        id=datacenter['id'],
-                        name=datacenter['name'],
-                        height=datacenter['default_height'],
-                        rooms=rooms,
-                        n_rooms=datacenter['n_rooms'],
-                        n_racks=datacenter['n_racks'],
-                        n_hosts=datacenter['n_hosts']
-                    )
-                
-                # Add updated_at to be updated
-                update_parts.append("updated_at = CURRENT_TIMESTAMP")
-                
-                # Build and execute update query
-                query = f"UPDATE datacenters SET {', '.join(update_parts)} WHERE id = %s RETURNING *"
-                params.append(datacenter_id)
-                
-                cursor.execute(query, params)
-                conn.commit()
-                
-                updated_datacenter = cursor.fetchone()
-                
-                # Get rooms for this datacenter
-                cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
-                rooms = cursor.fetchall()
-                
-                # Create and return updated DataCenter object
-                return DataCenter(
-                    id=updated_datacenter['id'],
-                    name=updated_datacenter['name'],
-                    height=updated_datacenter['default_height'],
-                    rooms=rooms,
-                    n_rooms=updated_datacenter['n_rooms'],
-                    n_racks=updated_datacenter['n_racks'],
-                    n_hosts=updated_datacenter['n_hosts']
-                )
-                
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-
-    def deleteDatacenter(self, datacenter_id):
-        """
-        Delete a datacenter from the database.
-        
-        Args:
-            datacenter_id (str): ID of the datacenter to delete
-        
-        Returns:
-            bool: True if datacenter was successfully deleted, False if not found
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                # First check if datacenter exists
-                cursor.execute("SELECT id FROM datacenters WHERE id = %s", (datacenter_id,))
-                if cursor.fetchone() is None:
-                    return False
-                
-                # Check if datacenter has any rooms (optional: prevent deletion if it has dependencies)
-                cursor.execute("SELECT COUNT(*) FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
-                room_count = cursor.fetchone()[0]
-                
-                if room_count > 0:
-                    # You may want to raise a custom exception here instead
-                    # to indicate that the datacenter has dependencies
-                    raise Exception(f"Cannot delete datacenter with ID {datacenter_id} because it contains {room_count} rooms")
-                
-                # Delete the datacenter
-                cursor.execute("DELETE FROM datacenters WHERE id = %s", (datacenter_id,))
-                conn.commit()
-                
-                # Check if any rows were affected
-                return cursor.rowcount > 0
-                
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-
-
+#### TODO ####
+# Implement the rest of the CRUD operations for Datacenter, Room, Rack, and Host
 class RoomManager:
     def __init__(self, db_pool):
         """
