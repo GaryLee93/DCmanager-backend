@@ -587,22 +587,37 @@ class RoomManager:
                 
                 if result is None:
                     return None
+                # Get full rack information for this room
+                cursor.execute(
+                    "SELECT id, name, height, service_id FROM racks WHERE room_id = %s",
+                    (room_id,)
+                )
+                racks_data = cursor.fetchall()
                 
-                # Get racks for this room
-                cursor.execute("SELECT id FROM racks WHERE room_id = %s", (room_id,))
-                rack_ids = [row[0] for row in cursor.fetchall()]
+                # Create SimpleRack objects
+                racks = []
+                for rack_data in racks_data:
+                    racks.append(
+                        SimpleRack(
+                            id=rack_data['id'],
+                            name=rack_data['name'],
+                            height=rack_data['height'],
+                            room_id=room_id,
+                            service_id=rack_data['service_id']
+                        )
+                    )
                 
                 # Create and return the Room object
                 return Room(
-                    id=result[0],
-                    name=result[1],
-                    height=result[2],
-                    racks=rack_ids,
-                    n_racks=result[3],
-                    n_hosts=result[4],
-                    dc_id=result[5]
+                    id=result['id'],
+                    name=result['name'],
+                    height=result['height'],
+                    racks=racks,  # Now using SimpleRack objects
+                    n_racks=result['n_racks'],
+                    n_hosts=result['n_hosts'],
+                    dc_id=result['datacenter_id']
                 )
-                
+                                
         except Exception as e:
             raise e
         finally:
@@ -919,15 +934,32 @@ class RackManager:
                     return None
                 
                 # Get hosts for this rack
-                cursor.execute("SELECT id FROM hosts WHERE rack_id = %s", (rack_id,))
-                host_ids = [row[0] for row in cursor.fetchall()]
+                cursor.execute(
+                    "SELECT id, name, height, ip, service_id, rack_id, pos FROM hosts WHERE rack_id = %s",
+                    (rack_id,)
+                )
+                hosts_data = cursor.fetchall()
+                
+                # Convert to SimpleHost objects
+                hosts = []
+                for host_data in hosts_data:
+                    hosts.append(
+                        SimpleHost(
+                            id=host_data['id'],
+                            name=host_data['name'],
+                            height=host_data['height'],
+                            status="active",  # Default status
+                            rack_id=host_data['rack_id'],
+                            pos=host_data['pos']
+                        )
+                    )
                 
                 # Create and return the Rack object
                 return Rack(
                     id=result[0],
                     name=result[1],
                     height=result[2],
-                    hosts=host_ids,
+                    hosts=hosts,
                     n_hosts=result[3],
                     service_id=result[4],
                     dc_id=result[5],
@@ -939,56 +971,7 @@ class RackManager:
         finally:
             if conn:
                 self.release_connection(conn)
-    
-    def getRacksByRoom(self, room_id):
-        """
-        Get all racks in a specific room.
         
-        Args:
-            room_id (str): ID of the room
-        
-        Returns:
-            list: List of Rack objects
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT id, name, height, n_hosts, service_id, datacenter_id, room_id FROM racks WHERE room_id = %s",
-                    (room_id,)
-                )
-                results = cursor.fetchall()
-                
-                racks = []
-                for result in results:
-                    rack_id = result[0]
-                    
-                    # Get hosts for this rack
-                    cursor.execute("SELECT id FROM hosts WHERE rack_id = %s", (rack_id,))
-                    host_ids = [row[0] for row in cursor.fetchall()]
-                    
-                    # Create Rack object
-                    rack = Rack(
-                        id=rack_id,
-                        name=result[1],
-                        height=result[2],
-                        hosts=host_ids,
-                        n_hosts=result[3],
-                        service_id=result[4],
-                        dc_id=result[5],
-                        room_id=result[6]
-                    )
-                    racks.append(rack)
-                
-                return racks
-                
-        except Exception as e:
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-    
     def getRacksByService(self, service_id):
         """
         Get all racks assigned to a specific service.
@@ -1373,90 +1356,7 @@ class HostManager:
         finally:
             if conn:
                 self.release_connection(conn)
-    
-    def getHostsByRack(self, rack_id):
-        """
-        Get all hosts in a specific rack.
-        
-        Args:
-            rack_id (str): ID of the rack
-        
-        Returns:
-            list: List of Host objects
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT id, name, height, ip, service_id, datacenter_id, room_id, rack_id FROM hosts WHERE rack_id = %s",
-                    (rack_id,)
-                )
-                results = cursor.fetchall()
-                
-                hosts = []
-                for result in results:
-                    host = Host(
-                        id=result[0],
-                        name=result[1],
-                        height=result[2],
-                        ip=result[3],
-                        service_id=result[4],
-                        dc_id=result[5],
-                        room_id=result[6],
-                        rack_id=result[7]
-                    )
-                    hosts.append(host)
-                
-                return hosts
-                
-        except Exception as e:
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-    
-    def getHostsByService(self, service_id):
-        """
-        Get all hosts assigned to a specific service.
-        
-        Args:
-            service_id (str): ID of the service
-        
-        Returns:
-            list: List of Host objects
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT id, name, height, ip, service_id, datacenter_id, room_id, rack_id FROM hosts WHERE service_id = %s",
-                    (service_id,)
-                )
-                results = cursor.fetchall()
-                
-                hosts = []
-                for result in results:
-                    host = Host(
-                        id=result[0],
-                        name=result[1],
-                        height=result[2],
-                        ip=result[3],
-                        service_id=result[4],
-                        dc_id=result[5],
-                        room_id=result[6],
-                        rack_id=result[7]
-                    )
-                    hosts.append(host)
-                
-                return hosts
-                
-        except Exception as e:
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
+
     
     # UPDATE operations
     def updateHost(self, host_id, name=None, height=None, ip=None, service_id=None, rack_id=None):
