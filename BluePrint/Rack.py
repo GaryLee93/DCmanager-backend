@@ -1,16 +1,18 @@
 from flask import Blueprint, request
-from db.database import DatacenterManager
+from db.database import RackManager
+from utils import schema
+from Host import DeleteHost
 
+Rack_Manager = RackManager()
 RACK_BLUEPRINT = Blueprint('rack', __name__)
 
 #Complete
 @RACK_BLUEPRINT.route('/', methods=['PUT'])
-def ModifyRack(rack_id):
+def AddNewRack(rack_id):
     name = request.json.get('name', type=str)
     height = request.json.get('height', type=int)
-    if DatacenterManager.getRack(rack_id) == None:
-        return "Rack Not Found", 404
-    DatacenterManager.updateRack(rack_id, name, height)
+    room_id = request.json.get('room_id', type=str)
+    dc_id = request.json.get('dc_id', type=str)
     return "Rack modified successfully!"
 
 @RACK_BLUEPRINT.route('/rack/<rack_id>', methods=['GET', 'PUT', 'DELETE'])
@@ -30,19 +32,20 @@ def ModifyRack(rack_id):
     height = request.json.get('height', type=int)
     service_id = request.json.get('service_id', type=str)
     room_id = request.json.get('room_id', type=str)
-    if DatacenterManager.getRack(rack_id) == None:
+    if Rack_Manager.getRack(rack_id) == None:
         return "Rack Not Found", 404
-    DatacenterManager.updateRack(rack_id, name, height)
+    Rack_Manager.updateRack(rack_id, name, height)
     return "Rack modified successfully!"
 
 def DeleteRack(rack_id):
     force = request.args.get('force', default=False, type=bool)
-    rack = DatacenterManager.getRack(rack_id)
+    rack = Rack_Manager.getRack(rack_id)
     if rack == None:
         return "Rack Not Found", 404
     if force:
-
-        DatacenterManager.deleteRack(rack_id)
+        for host in rack.hosts:
+            DeleteHost(host.id, force=True)
+        Rack_Manager.deleteRack(rack_id)
     else:
         return "you are not super user", 401
     return "Rack deleted successfully!"

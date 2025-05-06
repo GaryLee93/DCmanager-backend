@@ -3,7 +3,7 @@ from db.database import DatacenterManager
 from utils import schema
 from Room import DeleteRoom
 
-DBmanager = DatacenterManager()
+DC_manager = DatacenterManager()
 
 DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
 
@@ -28,26 +28,31 @@ def ProcessDC(dc_id):
     return # datacenter by id
 
 def GetDC(dc_id):
-    return # datacenter by id
+    dataCenter = DC_manager.getDatacenter(dc_id)
+    if dataCenter == None:
+        return "Data Center Not Found", 404
+    else:
+        return dataCenter.toJSON(), 200
 
 def ModifyDC(dc_id):
     name = request.json.get('name', type = str)
     height = request.json.get('height', type = int)
 
-    if(DBmanager.getDatacenter(dc_id) == None):
+    if(DC_manager.getDatacenter(dc_id) == None):
         return "Data Center Not Found", 404
     
-    DBmanager.updateDatacenter(dc_id, name, height)
+    DC_manager.updateDatacenter(dc_id, name, height)
     return "Modify Data Center"
 
 def DeleteDC(dc_id):
     force = request.args.get('force', default=False, type=bool)
-    datacenter = DBmanager.getDatacenter(dc_id)
+    datacenter = DC_manager.getDatacenter(dc_id)
     if datacenter == None:
         return "Data Center Not Found", 404
     if force:
-        
-        DBmanager.deleteDatacenter(dc_id)
+        for room in datacenter.rooms:
+            DeleteRoom(room.id, force=True)
+        DC_manager.deleteDatacenter(dc_id)
     else:
-        DBmanager.deleteDatacenter(dc_id, force=False)
+        DC_manager.deleteDatacenter(dc_id, force=False)
     return "Delete Data Center"
