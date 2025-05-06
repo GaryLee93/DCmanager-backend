@@ -96,7 +96,7 @@ class Service:
                  n_racks: int,
                  racks: list[SimpleRack],
                  n_hosts: int,
-                 taoal_ip: int,
+                 total_ip: int,
                  ip_list: list[str]
                 ):
         self.id = id
@@ -104,7 +104,7 @@ class Service:
         self.racks = racks
         self.n_racks = n_racks
         self.n_hosts = n_hosts
-        self.taoal_ip = taoal_ip
+        self.total_ip = total_ip
         self.ip_list = ip_list
 
 class User:
