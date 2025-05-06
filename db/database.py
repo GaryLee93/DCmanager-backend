@@ -815,6 +815,45 @@ class RoomManager:
         finally:
             if conn:
                 self.release_connection(conn)
+    
+    def getSimpleRoom(self, dc_id):
+        """
+        Get all room by datacenter ID.
+
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, height, n_racks, n_hosts FROM rooms WHERE datacenter_id = %s",
+                    (dc_id,)
+                )
+                results = cursor.fetchall()
+                
+                rooms = []
+                for result in results:
+                    room_id = result[0]
+                    
+                    # Get racks for this room
+                    cursor.execute("SELECT id FROM racks WHERE room_id = %s", (room_id,))
+                    rack_ids = [row[0] for row in cursor.fetchall()]
+                    # Create SimpleRoom object
+                    room = SimpleRoom(
+                        id=result[0],
+                        name=result[1],
+                        height=result[2],
+                        racks=rack_ids,
+                        n_racks=result[3],
+                        n_hosts=result[4]
+                    )
+                    rooms.append(room)
+                return rooms
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
 
 class RackManager:
     def __init__(self, db_pool):
