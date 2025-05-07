@@ -1,4 +1,4 @@
-from simpleSchema import SimpleDataCenter, SimpleRoom, SimpleRack, SimpleHost, SimpleService
+from utils.simpleSchema import SimpleDataCenter, SimpleRoom, SimpleRack, SimpleHost, SimpleService
 
 class IP_range:
     def __init__(self, start_IP: str, end_IP: str):
@@ -24,6 +24,18 @@ class DataCenter:
         self.n_racks = n_racks
         self.n_hosts = n_hosts
         self.ip_ranges = ip_ranges
+
+    def toDICT(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "height": self.default_height,
+            "n_rooms": self.n_rooms,
+            "rooms": [room.toDICT() for room in self.rooms],
+            "n_racks": self.n_racks,
+            "n_hosts": self.n_hosts,
+            "ip_ranges": [ip_range.__dict__ for ip_range in self.ip_ranges]
+        } 
 
 class Room:
     def __init__(self, 

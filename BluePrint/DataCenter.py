@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 from db.database import DatacenterManager
 from utils import schema
 from Room import DeleteRoom
@@ -9,13 +9,18 @@ DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
 
 @DATA_CENTER_BLUEPRINT.route('/', methods=['POST'])
 def AddNewDC():
-    name = request.json.get('name' , type = str)
-    height = request.json.get('height', type = int)
-    return #id
+    name = str(request.json.get('name'))
+    height = int(request.json.get('height'))
+    id = DC_manager.createDatacenter(name, height)
+    return jsonify({"id": str(id)}), 200
 
 @DATA_CENTER_BLUEPRINT.route('/all', methods=['GET'])
 def GetAllDC():
-    return # array of all datacenters
+    dataCenters = DC_manager.getAllDatacenters()
+    dataCenterList = []
+    for dataCenter in dataCenters:
+        dataCenterList.append(dataCenter.toDICT())
+    return jsonify(dataCenterList), 200 
 
 @DATA_CENTER_BLUEPRINT.route('/<dc_id>', methods = ['GET', 'PUT', 'DELETE'])
 def ProcessDC(dc_id):
@@ -32,20 +37,19 @@ def GetDC(dc_id):
     if dataCenter == None:
         return "Data Center Not Found", 404
     else:
-        return dataCenter.toJSON(), 200
+        return jsonify(dataCenter.toDICT()), 200
 
 def ModifyDC(dc_id):
-    name = request.json.get('name', type = str)
-    height = request.json.get('height', type = int)
+    name = str(request.json.get('name'))
+    height = int(request.json.get('height'))
 
     if(DC_manager.getDatacenter(dc_id) == None):
         return "Data Center Not Found", 404
-    
     DC_manager.updateDatacenter(dc_id, name, height)
-    return "Modify Data Center"
+    return "Modify Data Center", 200
 
 def DeleteDC(dc_id):
-    force = request.args.get('force', default=False, type=bool)
+    force = bool(request.json.get('force'))
     datacenter = DC_manager.getDatacenter(dc_id)
     if datacenter == None:
         return "Data Center Not Found", 404
@@ -55,4 +59,4 @@ def DeleteDC(dc_id):
         DC_manager.deleteDatacenter(dc_id)
     else:
         DC_manager.deleteDatacenter(dc_id, force=False)
-    return "Delete Data Center"
+    return "Delete Data Center", 200
