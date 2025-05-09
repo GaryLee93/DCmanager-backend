@@ -892,12 +892,13 @@ class RackManager:
 
         
     # UPDATE operations
-    def updateRack(self, rack_id, name=None, height=None, service_id=None):
+    def updateRack(self, rack_id, room_id, name=None, height=None, service_id=None):
         """
         Update a rack's information.
         
         Args:
             rack_id (str): ID of the rack to update
+            room_id (str): ID of the room this rack belongs to
             name (str, optional): New name for the rack
             height (int, optional): New height for the rack
             service_id (str, optional): New service ID for the rack
@@ -927,7 +928,7 @@ class RackManager:
                 # Build the update query based on provided parameters
                 update_params = []
                 query_parts = []
-                
+                query_parts.append("room_id = %s")
                 if name is not None:
                     query_parts.append("name = %s")
                     update_params.append(name)
@@ -963,6 +964,11 @@ class RackManager:
                         "UPDATE services SET n_racks = n_racks + 1 WHERE id = %s",
                         (service_id,)
                     )
+                # Update the room count in the room
+                cursor.execute(
+                    "UPDATE rooms SET n_racks = n_racks + 1 WHERE id = %s",
+                    (room_id,)
+                )
                 
                 conn.commit()
                 
