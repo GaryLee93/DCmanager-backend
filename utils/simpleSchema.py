@@ -68,9 +68,9 @@ class SimpleService:
                 name: str,
                 n_racks: int,
                 n_hosts: int,
-                tatal_ip = int):
+                total_ip = int):
         self.id = id
         self.name = name
         self.n_racks = n_racks
         self.n_hosts = n_hosts
-        self.tatal_ip = tatal_ip    
+        self.total_ip = total_ip    

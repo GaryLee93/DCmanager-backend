@@ -6,90 +6,144 @@ import uuid
 HostManager = database.HostManager()
 HOST_BLUEPRINT = Blueprint('host', __name__)
 
-
-@HOST_BLUEPRINT.route('/rack/<rack_id>/host', methods=['POST'])
-def AddHostToRack():
+@HOST_BLUEPRINT.route('/host', methods=['POST'])
+def AddHost():
+    """Add a new host to the system"""
     try:
-        name = request.json.get('hostname')
-        height = request.json.get('height')
-        ip = request.json.get('ip')
-        service_id = request.json.get('service_id')
-        dc_id = request.json.get('dc_id')
-        room_id = request.json.get('room_id')
-        rack_id = request.json.get('rack_id')
+        data = request.get_json()
+        
+        # Required fields
+        name = data.get('name')
+        height = data.get('height')
+        ip = data.get('ip')
+        rack_id = data.get('rack_id')
+        pos = data.get('pos')  # Position in rack
+        
+        if not all([name, height, ip, rack_id, pos]):
+            return jsonify({'error': 'Missing required fields (name, height, ip, rack_id, pos)'}), 400
 
         # Generate a unique ID for the host
         host_id = str(uuid.uuid4())
-
+        
+        # Get additional information from the rack
+        rack_info = HostManager.getRackInfo(rack_id)
+        if not rack_info:
+            return jsonify({'error': 'Rack not found'}), 404
+            
+        # Create host object
         host = schema.Host(
             id=host_id,
             name=name,
             height=height,
             ip=ip,
-            service_id=service_id,
-            dc_id=dc_id,
-            room_id=room_id,
-            rack_id=rack_id
+            status='active',  # Default status
+            service_id=rack_info.get('service_id'),
+            dc_id=rack_info.get('dc_id'),
+            room_id=rack_info.get('room_id'),
+            rack_id=rack_id,
+            pos=pos
         )
 
-        HostManager.addHost(host)
+        # Add host to database
+        success = HostManager.addHost(host)
+        if not success:
+            return jsonify({'error': 'Failed to add host'}), 500
 
-        return jsonify({'message': 'Host added successfully', 'host_id': host_id}), 201
+        return jsonify({
+            'message': 'Host added successfully',
+            'host_id': host_id,
+            'host': vars(host)
+        }), 201
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-@HOST_BLUEPRINT.route('/service/<service_id>/host/all', methods=['GET'])
-def GetHostsByService(service_id):
+@HOST_BLUEPRINT.route('/host/<host_id>', methods=['GET'])
+def GetHost(host_id):
+    """Get a specific host by ID"""
     try:
-        hosts = HostManager.getHostsByService(service_id)
-        host_dicts = [host.__dict__ for host in hosts]
-        return jsonify(host_dicts), 200
+        host = HostManager.getHost(host_id)
+        if not host:
+            return jsonify({'error': 'Host not found'}), 404
+            
+        return jsonify(vars(host)), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-
-@HOST_BLUEPRINT.route('/rack/<rack_id>/host/all', methods=['GET'])
-def GetHostsByRack(rack_id):
-    try:
-        hosts = HostManager.getHostsByRack(rack_id)
-        host_dicts = [host.__dict__ for host in hosts]
-        return jsonify(host_dicts), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @HOST_BLUEPRINT.route('/host/<host_id>', methods=['PUT'])
 def ModifyHost(host_id):
+    """Update a host's information (partial updates supported)"""
     try:
-        name = request.json.get('hostname')
-        height = request.json.get('height')
-        ip = request.json.get('ip')
-        service_id = request.json.get('service_id')
-
-        updated = HostManager.modifyHost(
+        data = request.get_json()
+        
+        # Get existing host first
+        existing_host = HostManager.getHost(host_id)
+        if not existing_host:
+            return jsonify({'error': 'Host not found'}), 404
+        
+        # Prepare update fields (only update provided fields)
+        update_fields = {
+            'name': data.get('name', existing_host.name),
+            'height': data.get('height', existing_host.height),
+            'ip': data.get('ip', existing_host.ip),
+            'status': data.get('status', existing_host.status),
+            'pos': data.get('pos', existing_host.pos)
+        }
+        
+        # Handle rack change if specified
+        new_rack_id = data.get('rack_id')
+        if new_rack_id and new_rack_id != existing_host.rack_id:
+            # Verify new rack exists
+            rack_info = HostManager.getRackInfo(new_rack_id)
+            if not rack_info:
+                return jsonify({'error': 'New rack not found'}), 404
+                
+            update_fields.update({
+                'rack_id': new_rack_id,
+                'service_id': rack_info.get('service_id'),
+                'room_id': rack_info.get('room_id'),
+                'dc_id': rack_info.get('dc_id')
+            })
+        
+        # Update host
+        updated_host = HostManager.modifyHost(
             host_id=host_id,
-            name=name,
-            height=height,
-            ip=ip,
-            service_id=service_id
+            **update_fields
         )
-
-        if updated:
-            return jsonify({'message': 'Host updated successfully'}), 200
-        else:
-            return jsonify({'message': 'Host not found'}), 404
+        
+        if not updated_host:
+            return jsonify({'error': 'Failed to update host'}), 500
+            
+        return jsonify({
+            'message': 'Host updated successfully',
+            'host': vars(updated_host)
+        }), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @HOST_BLUEPRINT.route('/host/<host_id>', methods=['DELETE'])
 def DeleteHost(host_id):
+    """Delete a host by ID"""
     try:
-        deleted = HostManager.deleteHost(host_id)
-        if deleted:
-            return jsonify({'message': 'Host deleted successfully'}), 200
-        else:
-            return jsonify({'message': 'Host not found'}), 404
+        # First check if host exists
+        host = HostManager.getHost(host_id)
+        if not host:
+            return jsonify({'error': 'Host not found'}), 404
+            
+        # Delete the host
+        success = HostManager.deleteHost(host_id)
+        if not success:
+            return jsonify({'error': 'Failed to delete host'}), 500
+            
+        return jsonify({
+            'message': 'Host deleted successfully',
+            'deleted_host': {
+                'id': host_id,
+                'name': host.name,
+                'ip': host.ip
+            }
+        }), 200
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
