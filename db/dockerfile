@@ -15,4 +15,4 @@ VOLUME ["/var/lib/postgresql/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD pg_isready -U postgres || exit 1
-
+  CMD ["python", "db/database.py"]
