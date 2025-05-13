@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db.database import RackManager
 from utils import schema
-from Host import DeleteHost
+from .Host import DeleteHost
 
 Rack_Manager = RackManager()
 RACK_BLUEPRINT = Blueprint('rack', __name__)

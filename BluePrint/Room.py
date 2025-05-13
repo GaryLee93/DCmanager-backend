@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from db.database import RoomManager
 from utils import schema
-from Rack import DeleteRack
+from .Rack import DeleteRack
 
 Room_Manager = RoomManager()
 ROOM_BLUEPRINT = Blueprint('room', __name__)
