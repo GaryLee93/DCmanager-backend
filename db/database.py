@@ -498,22 +498,16 @@ class DatacenterManager:
 
 
 class RoomManager:
-    def __init__(self, db_pool):
-        """
-        Initialize the RoomManager with a database connection pool.
-        
-        Args:
-            db_pool: Database connection pool
-        """
-        self.db_pool = db_pool
-    
-    def get_connection(self):
+
+    @staticmethod
+    def get_connection():
         """Get a connection from the pool"""
-        return self.db_pool.getconn()
-    
-    def release_connection(self, conn):
-        """Return a connection to the pool"""
-        self.db_pool.putconn(conn)
+        return pool.getconn()
+
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)
     
     # CREATE operations
     def createRoom(self, name, height, datacenter_id):
@@ -736,22 +730,16 @@ class RoomManager:
     
 
 class RackManager:
-    def __init__(self, db_pool):
-        """
-        Initialize the RackManager with a database connection pool.
-        
-        Args:
-            db_pool: Database connection pool
-        """
-        self.db_pool = db_pool
-    
-    def get_connection(self):
+
+    @staticmethod
+    def get_connection():
         """Get a connection from the pool"""
-        return self.db_pool.getconn()
-    
-    def release_connection(self, conn):
-        """Return a connection to the pool"""
-        self.db_pool.putconn(conn)
+        return pool.getconn()
+
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)    
     
     # CREATE operations
     def createRack(self, name, height, room_id, service_id=None):
@@ -1054,23 +1042,16 @@ class RackManager:
                 self.release_connection(conn)
 
 class HostManager:
-    def __init__(self, db_pool):
-        """
-        Initialize the HostManager with a database connection pool.
-        
-        Args:
-            db_pool: Database connection pool
-        """
-        self.db_pool = db_pool
-    
-    def get_connection(self):
+
+    @staticmethod
+    def get_connection():
         """Get a connection from the pool"""
-        return self.db_pool.getconn()
-    
-    def release_connection(self, conn):
-        """Return a connection to the pool"""
-        self.db_pool.putconn(conn)
-    
+        return pool.getconn()
+
+    @staticmethod
+    def release_connection(conn):
+        """Release a connection back to the pool"""
+        pool.putconn(conn)    
     # CREATE operations
     def createHost(self, name, height, ip, rack_id, service_id=None):
         """
