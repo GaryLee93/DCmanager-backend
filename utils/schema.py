@@ -1,4 +1,4 @@
-from simpleSchema import SimpleDataCenter, SimpleRoom, SimpleRack, SimpleHost, SimpleService
+from utils.simpleSchema import SimpleDataCenter, SimpleRoom, SimpleRack, SimpleHost, SimpleService
 
 class IP_range:
     def __init__(self, start_IP: str, end_IP: str):
@@ -25,6 +25,18 @@ class DataCenter:
         self.n_hosts = n_hosts
         self.ip_ranges = ip_ranges
 
+    def toDICT(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "height": self.default_height,
+            "n_rooms": self.n_rooms,
+            "rooms": [room.toDICT() for room in self.rooms],
+            "n_racks": self.n_racks,
+            "n_hosts": self.n_hosts,
+            "ip_ranges": [ip_range.__dict__ for ip_range in self.ip_ranges]
+        } 
+
 class Room:
     def __init__(self, 
                  id: str, 
@@ -38,10 +50,21 @@ class Room:
         self.id = id
         self.name = name
         self.height = height
-        self.racks = racks
         self.n_racks = n_racks
+        self.racks = racks
         self.n_hosts = n_hosts
         self.dc_id = dc_id
+
+    def toDICT(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "height": self.height,
+            "racks": [rack.toDICT() for rack in self.racks],
+            "n_racks": self.n_racks,
+            "n_hosts": self.n_hosts,
+            "dc_id": self.dc_id
+        }
 
 class Rack:
     def __init__(self, 
@@ -64,6 +87,19 @@ class Rack:
         self.service_id = service_id
         self.dc_id = dc_id
         self.room_id = room_id
+
+    def toDICT(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "height": self.height,
+            "capacity": self.capacity,
+            "n_hosts": self.n_hosts,
+            "hosts": [host.toDICT() for host in self.hosts],
+            "service_id": self.service_id,
+            "dc_id": self.dc_id,
+            "room_id": self.room_id
+        }
 
 class Host:
     def __init__(self, 
@@ -88,6 +124,20 @@ class Host:
         self.room_id = room_id
         self.rack_id = rack_id
         self.pos = pos
+    
+    def toDICT(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "height": self.height,
+            "ip": self.ip,
+            "status": self.status,
+            "service_id": self.service_id,
+            "dc_id": self.dc_id,
+            "room_id": self.room_id,
+            "rack_id": self.rack_id,
+            "pos": self.pos
+        }
 
 class Service:
     def __init__(self, 
