@@ -5,7 +5,7 @@ ENV POSTGRES_PASSWORD=postgres
 ENV POSTGRES_DB=datacenter_management
 ENV PGDATA=/var/lib/postgresql/data/pgdata
 
-COPY database_setup.sql /docker-entrypoint-initdb.d/
+COPY db/database_setup.sql /docker-entrypoint-initdb.d/
 
 # default PostgreSQL port
 EXPOSE 5432
@@ -15,4 +15,3 @@ VOLUME ["/var/lib/postgresql/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD pg_isready -U postgres || exit 1
-  CMD ["python", "db/database.py"]

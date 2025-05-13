@@ -16,8 +16,8 @@ DB_CONFIG = {
     'dbname': os.environ.get('DB_NAME', 'datacenter_management'),
     'user': os.environ.get('DB_USER', 'postgres'),
     'password': os.environ.get('DB_PASSWORD', 'postgres'),
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'port': os.environ.get('DB_PORT', '5433')
+    'host': os.environ.get('DB_HOST', 'db'),
+    'port': os.environ.get('DB_PORT', '5432')
 }
 
 def test_connection():
