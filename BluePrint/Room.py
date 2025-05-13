@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 from db.database import RoomManager
 from utils import schema
 from Rack import DeleteRack
@@ -8,11 +8,11 @@ ROOM_BLUEPRINT = Blueprint('room', __name__)
 
 @ROOM_BLUEPRINT.route('/', methods=['POST'])
 def AddNewRoom():
-    name = request.json.get('name', type=str)
-    height = request.json.get('height', type=int)
-    dc_id = request.json.get('dc_id', type=str)
-
-    return #id
+    name = str(request.json.get('name'))
+    height = int(request.json.get('height'))
+    dc_id = str(request.json.get('dc_id'))
+    room_id = Room_Manager.createRoom(name, height, dc_id)
+    return jsonify({"id", room_id}), 200
 
 @ROOM_BLUEPRINT.route('/<room_id>', methods=['GET', 'PUT', 'DELETE'])
 def ProcessRoom(room_id):
@@ -24,24 +24,23 @@ def ProcessRoom(room_id):
         return DeleteRoom(room_id)
 
 def GetRoom(room_id):
-    room = Room_Manager.getRooms(room_id)
+    room = Room_Manager.getRoom(room_id)
     if room == None:
         return "Room Not Found", 404
     else:
-        return room.toJSON(), 200
+        return jsonify(room.toDict()), 200
 
 def ModifyRoom(room_id):
-    name = request.json.get('name', type=str)
-    height = request.json.get('height', type=int)
-    dc_id = request.json.get('dc_id', type=str)
+    name = str(request.json.get('name'))
+    height = int(request.json.get('height'))
+    dc_id = str(request.json.get('dc_id'))
     if Room_Manager.getRoom(room_id) == None:
         return "Room Not Found", 404
     Room_Manager.updateRoom(room_id, name, height)
-    
-    return "modify room"
+    return "modify room", 200
 
 def DeleteRoom(room_id):
-    force = request.args.get('force', default=False, type=bool)
+    force = bool(request.json.get('force'))
     room = Room_Manager.getRoom(room_id)
     if room == None:
         return "Room Not Found", 404
@@ -51,5 +50,5 @@ def DeleteRoom(room_id):
         Room_Manager.deleteRoom(room_id)
     else:
         return "you are not super user", 401
-    return "delete room"
+    return "delete room", 200
 
