@@ -9,7 +9,7 @@ import psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from datetime import datetime
 import uuid
-from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, IP_Subnet, User, Company_IP_Subnets
+from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import SimpleRoom, SimpleRack, SimpleHost, SimpleService, SimpleDataCenter
 # Database connection configuration
 DB_CONFIG = {

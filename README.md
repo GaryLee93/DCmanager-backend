@@ -8,7 +8,7 @@ docker build -f docker/Dockerfile -t backend_image .
 ```
 2. run a container with above image
 ```
-docker run -p 5000:5000 --name DCmanager-backend backend-image
+docker run -p 5000:5000 --name DCmanager-backend backend_image
 ```
 
 ## Database 
