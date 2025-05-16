@@ -1465,9 +1465,9 @@ class ServiceManager:
                         racks.append(rack)
                     
                     # Get IP addresses for this service
-                    cursor.execute("SELECT ip_address FROM service_ips WHERE service_id = %s", (service_id,))
+                    cursor.execute("SELECT ip FROM service_ips WHERE service_id = %s", (service_id,))
                     ip_data = cursor.fetchall()
-                    ip_list = [ip['ip_address'] for ip in ip_data]
+                    ip_list = [ip['ip'] for ip in ip_data]
                     
                     # Create and return a Service object
                     return Service(
@@ -1506,9 +1506,9 @@ class ServiceManager:
                             racks.append(rack)
                         
                         # Get IP addresses for this service
-                        cursor.execute("SELECT ip_address FROM service_ips WHERE service_id = %s", (srv_id,))
+                        cursor.execute("SELECT ip FROM service_ips WHERE service_id = %s", (srv_id,))
                         ip_data = cursor.fetchall()
-                        ip_list = [ip['ip_address'] for ip in ip_data]
+                        ip_list = [ip['ip'] for ip in ip_data]
                         
                         # Create Service object and append to list
                         services.append(
@@ -1611,16 +1611,16 @@ class ServiceManager:
                         # Insert IP address for this service
                         cursor.execute(
                             """
-                            INSERT INTO service_ips (service_id, ip_address)
+                            INSERT INTO service_ips (service_id, ip)
                             VALUES (%s, %s)
-                            RETURNING id, service_id, ip_address
+                            RETURNING id, service_id, ip
                             """,
                             (service_id, ip)
                         )
                         ip_record = cursor.fetchone()
                         
                         if ip_record:
-                            assigned_ips.append(ip_record['ip_address'])
+                            assigned_ips.append(ip_record['ip'])
                 
                 # Commit all changes
                 conn.commit()
@@ -1704,7 +1704,7 @@ class ServiceManager:
                     
                     for ip in ip_list:
                         cursor.execute(
-                            "INSERT INTO service_ips (service_id, ip_address) VALUES (%s, %s)",
+                            "INSERT INTO service_ips (service_id, ip) VALUES (%s, %s)",
                             (service_id, ip)
                         )
                 
@@ -1738,9 +1738,9 @@ class ServiceManager:
                     updated_racks.append(rack)
                 
                 # Get updated IP addresses for this service
-                cursor.execute("SELECT ip_address FROM service_ips WHERE service_id = %s", (service_id,))
+                cursor.execute("SELECT ip FROM service_ips WHERE service_id = %s", (service_id,))
                 ip_data = cursor.fetchall()
-                updated_ip_list = [ip['ip_address'] for ip in ip_data]
+                updated_ip_list = [ip['ip'] for ip in ip_data]
                 
                 # Commit all changes
                 conn.commit()
@@ -1942,7 +1942,7 @@ class ServiceManager:
                 
                 # Add IP address
                 cursor.execute(
-                    "INSERT INTO service_ips (service_id, ip_address) VALUES (%s, %s)",
+                    "INSERT INTO service_ips (service_id, ip) VALUES (%s, %s)",
                     (service_id, ip_address)
                 )
                 
@@ -1986,7 +1986,7 @@ class ServiceManager:
             with conn.cursor() as cursor:
                 # Delete IP address
                 cursor.execute(
-                    "DELETE FROM service_ips WHERE service_id = %s AND ip_address = %s",
+                    "DELETE FROM service_ips WHERE service_id = %s AND ip = %s",
                     (service_id, ip_address)
                 )
                 
