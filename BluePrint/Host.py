@@ -6,7 +6,7 @@ import uuid
 HostManager = database.HostManager()
 HOST_BLUEPRINT = Blueprint('host', __name__)
 
-@HOST_BLUEPRINT.route('/host', methods=['POST'])
+@HOST_BLUEPRINT.route('/', methods=['POST'])
 def AddHost():
     """Add a new host to the system"""
     try:
@@ -56,7 +56,7 @@ def AddHost():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@HOST_BLUEPRINT.route('/host/<host_id>', methods=['GET'])
+@HOST_BLUEPRINT.route('/<host_id>', methods=['GET'])
 def GetHost(host_id):
     """Get a specific host by ID"""
     try:
@@ -68,7 +68,7 @@ def GetHost(host_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@HOST_BLUEPRINT.route('/host/<host_id>', methods=['PUT'])
+@HOST_BLUEPRINT.route('/<host_id>', methods=['PUT'])
 def ModifyHost(host_id):
     """Update a host's information (partial updates supported)"""
     try:
@@ -119,7 +119,7 @@ def ModifyHost(host_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@HOST_BLUEPRINT.route('/host/<host_id>', methods=['DELETE'])
+@HOST_BLUEPRINT.route('/<host_id>', methods=['DELETE'])
 def DeleteHost(host_id):
     """Delete a host by ID"""
     try:
