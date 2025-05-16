@@ -22,7 +22,7 @@ services:
   db:
     build:
       context: .
-      dockerfile: ./db/dockerfile
+      dockerfile: ./db/Dockerfile
     container_name: database
     environment:
       - POSTGRES_USER=postgres

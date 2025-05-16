@@ -5,7 +5,7 @@ from utils import schema
 ServiceManager = database.ServiceManager()
 SERVICE_BLUEPRINT = Blueprint('service', __name__)
 
-@SERVICE_BLUEPRINT.route('/service', methods=['POST'])
+@SERVICE_BLUEPRINT.route('/', methods=['POST'])
 def AddService():
     """Add a new service"""
     try:
@@ -36,7 +36,7 @@ def AddService():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@SERVICE_BLUEPRINT.route('/service/all', methods=['GET'])
+@SERVICE_BLUEPRINT.route('/all', methods=['GET'])
 def GetAllService():
     """Get all services"""
     try:
@@ -54,7 +54,7 @@ def GetAllService():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@SERVICE_BLUEPRINT.route('/service/<service_id>', methods=['GET'])
+@SERVICE_BLUEPRINT.route('/<service_id>', methods=['GET'])
 def GetService(service_id):
     """Get a specific service by ID"""
     try:
@@ -69,7 +69,7 @@ def GetService(service_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@SERVICE_BLUEPRINT.route('/service/<service_id>', methods=['PUT'])
+@SERVICE_BLUEPRINT.route('/<service_id>', methods=['PUT'])
 def ModifyService(service_id):
     """Modify a service's name"""
     try:
@@ -96,7 +96,7 @@ def ModifyService(service_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@SERVICE_BLUEPRINT.route('/service/<service_id>/rack/extend', methods=['PUT'])
+@SERVICE_BLUEPRINT.route('/<service_id>/rack/extend', methods=['PUT'])
 def ExtendServiceRack(service_id):
     """Add more racks to a service"""
     try:
@@ -124,7 +124,7 @@ def ExtendServiceRack(service_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@SERVICE_BLUEPRINT.route('/service/<service_id>/ip/extend', methods=['PUT'])
+@SERVICE_BLUEPRINT.route('/<service_id>/ip/extend', methods=['PUT'])
 def ExtendServiceIP(service_id):
     """Add more IP addresses to a service"""
     try:
@@ -150,7 +150,7 @@ def ExtendServiceIP(service_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-@SERVICE_BLUEPRINT.route('/service/<service_id>', methods=['DELETE'])
+@SERVICE_BLUEPRINT.route('/<service_id>', methods=['DELETE'])
 def DeleteService(service_id):
     """Delete a service by ID"""
     try:
