@@ -50,10 +50,8 @@ def AddHost():
             return jsonify({'error': 'Failed to add host'}), 500
 
         return jsonify({
-            'message': 'Host added successfully',
-            'host_id': host_id,
-            'host': vars(host)
-        }), 201
+            'host_id': host_id
+        }), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -115,8 +113,7 @@ def ModifyHost(host_id):
             return jsonify({'error': 'Failed to update host'}), 500
             
         return jsonify({
-            'message': 'Host updated successfully',
-            'host': vars(updated_host)
+            'host_id': host_id
         }), 200
         
     except Exception as e:
@@ -137,12 +134,7 @@ def DeleteHost(host_id):
             return jsonify({'error': 'Failed to delete host'}), 500
             
         return jsonify({
-            'message': 'Host deleted successfully',
-            'deleted_host': {
-                'id': host_id,
-                'name': host.name,
-                'ip': host.ip
-            }
+            'host_id': host_id
         }), 200
         
     except Exception as e:
