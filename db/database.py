@@ -196,7 +196,7 @@ class DatacenterManager:
                     return None
                 
                 # Get rooms for this datacenter
-                cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                cursor.execute("SELECT * FROM rooms WHERE id = %s", (datacenter_id,))
                 rooms_data = cursor.fetchall()
                 
                 # Convert to SimpleRoom objects
@@ -252,14 +252,14 @@ class DatacenterManager:
                     return False
                 
                 # Check if datacenter has any rooms
-                cursor.execute("SELECT COUNT(*) FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                cursor.execute("SELECT COUNT(*) FROM rooms WHERE id = %s", (datacenter_id,))
                 room_count = cursor.fetchone()[0]
                 
                 if room_count > 0:
                     raise Exception(f"Cannot delete datacenter with ID {datacenter_id} because it contains {room_count} rooms")
                 
                 # Delete associated IP ranges first
-                cursor.execute("DELETE FROM ip_ranges WHERE datacenter_id = %s", (datacenter_id,))
+                cursor.execute("DELETE FROM ip_ranges WHERE id = %s", (datacenter_id,))
                 
                 # Delete the datacenter
                 cursor.execute("DELETE FROM datacenters WHERE id = %s", (datacenter_id,))
@@ -330,7 +330,7 @@ class DatacenterManager:
                     updated_datacenter = datacenter
                 
                 # Get rooms for this datacenter
-                cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (datacenter_id,))
+                cursor.execute("SELECT * FROM rooms WHERE id = %s", (datacenter_id,))
                 rooms_data = cursor.fetchall()
                 
                 # Convert to SimpleRoom objects
@@ -347,7 +347,7 @@ class DatacenterManager:
                 ip_range_manager = IPRangeManager()
                 if ip_ranges is not None:
                     # Delete existing IP ranges for this datacenter
-                    cursor.execute("DELETE FROM ip_ranges WHERE datacenter_id = %s", (datacenter_id,))
+                    cursor.execute("DELETE FROM ip_ranges WHERE id = %s", (datacenter_id,))
                     conn.commit()
                     
                     # Add new IP ranges
@@ -583,7 +583,7 @@ class RoomManager:
                     return None
                 # Get full rack information for this room
                 cursor.execute(
-                    "SELECT id, name, height, service_id FROM racks WHERE room_id = %s",
+                    "SELECT id, name, height FROM racks WHERE id = %s",
                     (room_id,)
                 )
                 racks_data = cursor.fetchall()
@@ -596,8 +596,7 @@ class RoomManager:
                             id=rack_data['id'],
                             name=rack_data['name'],
                             height=rack_data['height'],
-                            room_id=room_id,
-                            service_id=rack_data['service_id']
+                            room_id=room_id
                         )
                     )
                 
@@ -699,7 +698,7 @@ class RoomManager:
                 datacenter_id = room_info[1]
                 
                 # Check if room has any racks (optional: prevent deletion if it has dependencies)
-                cursor.execute("SELECT COUNT(*) FROM racks WHERE room_id = %s", (room_id,))
+                cursor.execute("SELECT COUNT(*) FROM racks WHERE id = %s", (room_id,))
                 rack_count = cursor.fetchone()[0]
                 
                 if rack_count > 0:
@@ -760,7 +759,7 @@ class RackManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Check if room exists and get datacenter_id
-                cursor.execute("SELECT id, datacenter_id FROM rooms WHERE id = %s", (room_id,))
+                cursor.execute("SELECT id, dc_id FROM rooms WHERE id = %s", (room_id,))
                 room_info = cursor.fetchone()
                 
                 if room_info is None:
@@ -780,7 +779,7 @@ class RackManager:
                 
                 # Insert the new rack
                 cursor.execute(
-                    "INSERT INTO racks (id, name, height, n_hosts, service_id, datacenter_id, room_id) VALUES (%s, %s, %s, 0, %s, %s, %s)",
+                    "INSERT INTO racks (id, name, height, n_hosts, service_id, dc_id, room_id) VALUES (%s, %s, %s, 0, %s, %s, %s)",
                     (rack_id, name, height, service_id, datacenter_id, room_id)
                 )
                 
@@ -830,7 +829,7 @@ class RackManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, name, height, n_hosts, service_id, datacenter_id, room_id FROM racks WHERE id = %s",
+                    "SELECT id, name, height, n_hosts, service_id, dc_id, room_id FROM racks WHERE id = %s",
                     (rack_id,)
                 )
                 result = cursor.fetchone()
@@ -840,7 +839,7 @@ class RackManager:
                 
                 # Get hosts for this rack
                 cursor.execute(
-                    "SELECT id, name, height, ip, service_id, rack_id, pos FROM hosts WHERE rack_id = %s",
+                    "SELECT id, name, height, ip, service_id, rack_id, pos FROM hosts WHERE id = %s",
                     (rack_id,)
                 )
                 hosts_data = cursor.fetchall()
@@ -987,7 +986,7 @@ class RackManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # First check if rack exists and get its room_id, datacenter_id, and service_id
-                cursor.execute("SELECT id, room_id, datacenter_id, service_id FROM racks WHERE id = %s", (rack_id,))
+                cursor.execute("SELECT id, room_id, dc_id, service_id FROM racks WHERE id = %s", (rack_id,))
                 rack_info = cursor.fetchone()
                 
                 if rack_info is None:
@@ -1072,7 +1071,7 @@ class HostManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Check if rack exists and get its room_id and datacenter_id
-                cursor.execute("SELECT id, room_id, datacenter_id FROM racks WHERE id = %s", (rack_id,))
+                cursor.execute("SELECT id, room_id, dc_id FROM racks WHERE id = %s", (rack_id,))
                 rack_info = cursor.fetchone()
                 
                 if rack_info is None:
@@ -1098,7 +1097,7 @@ class HostManager:
                 
                 # Insert the new host
                 cursor.execute(
-                    "INSERT INTO hosts (id, name, height, ip, service_id, datacenter_id, room_id, rack_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    "INSERT INTO hosts (id, name, height, ip, service_id, dc_id, room_id, rack_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                     (host_id, name, height, ip, service_id, datacenter_id, room_id, rack_id)
                 )
                 
@@ -1147,7 +1146,7 @@ class HostManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, name, height, ip, service_id, datacenter_id, room_id, rack_id FROM hosts WHERE id = %s",
+                    "SELECT id, name, height, ip, service_id, dc_id, room_id, rack_id FROM hosts WHERE id = %s",
                     (host_id,)
                 )
                 result = cursor.fetchone()
@@ -1188,7 +1187,7 @@ class HostManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, name, height, ip, service_id, datacenter_id, room_id, rack_id FROM hosts WHERE ip = %s",
+                    "SELECT id, name, height, ip, service_id, dc_id, room_id, rack_id FROM hosts WHERE ip = %s",
                     (ip,)
                 )
                 result = cursor.fetchone()
@@ -1237,7 +1236,7 @@ class HostManager:
             with conn.cursor() as cursor:
                 # First check if host exists and get its current information
                 cursor.execute(
-                    "SELECT id, rack_id, room_id, datacenter_id FROM hosts WHERE id = %s",
+                    "SELECT id, rack_id, room_id, dc_id FROM hosts WHERE id = %s",
                     (host_id,)
                 )
                 host_info = cursor.fetchone()
@@ -1260,7 +1259,7 @@ class HostManager:
                 new_datacenter_id = current_datacenter_id
                 
                 if rack_id is not None and rack_id != current_rack_id:
-                    cursor.execute("SELECT id, room_id, datacenter_id FROM racks WHERE id = %s", (rack_id,))
+                    cursor.execute("SELECT id, room_id, dc_id FROM racks WHERE id = %s", (rack_id,))
                     rack_info = cursor.fetchone()
                     
                     if rack_info is None:
@@ -1300,7 +1299,7 @@ class HostManager:
                     update_params.append(rack_id)
                     query_parts.append("room_id = %s")
                     update_params.append(new_room_id)
-                    query_parts.append("datacenter_id = %s")
+                    query_parts.append("dc_id = %s")
                     update_params.append(new_datacenter_id)
                 
                 if not query_parts:
@@ -1372,7 +1371,7 @@ class HostManager:
             with conn.cursor() as cursor:
                 # First check if host exists and get its rack_id, room_id, and datacenter_id
                 cursor.execute(
-                    "SELECT id, rack_id, room_id, datacenter_id FROM hosts WHERE id = %s",
+                    "SELECT id, rack_id, room_id, dc_id FROM hosts WHERE id = %s",
                     (host_id,)
                 )
                 host_info = cursor.fetchone()
