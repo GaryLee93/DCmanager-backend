@@ -574,7 +574,7 @@ class RoomManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, name, height, n_racks, n_hosts, datacenter_id FROM rooms WHERE id = %s",
+                    "SELECT id, name, height, n_racks, n_hosts, dc_id FROM rooms WHERE id = %s",
                     (room_id,)
                 )
                 result = cursor.fetchone()
@@ -689,7 +689,7 @@ class RoomManager:
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # First check if room exists and get its datacenter_id
-                cursor.execute("SELECT id, datacenter_id FROM rooms WHERE id = %s", (room_id,))
+                cursor.execute("SELECT id, dc_id FROM rooms WHERE id = %s", (room_id,))
                 room_info = cursor.fetchone()
                 
                 if room_info is None:
