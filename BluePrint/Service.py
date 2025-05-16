@@ -31,7 +31,9 @@ def AddService():
         if not new_service:
             return jsonify({"error": "Failed to create service"}), 500
 
-        return jsonify(vars(new_service)), 201
+        return jsonify({
+            'service_id': new_service.id
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -163,11 +165,7 @@ def DeleteService(service_id):
             return jsonify({"error": "Failed to delete service"}), 500
 
         return jsonify({
-            "message": "Service deleted successfully",
-            "deleted_service": {
-                "id": service_id,
-                "name": service.name
-            }
+            'service_id': service_id
         }), 200
 
     except Exception as e:

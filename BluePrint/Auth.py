@@ -5,7 +5,7 @@ from utils import schema
 UserManager = database.UserManager()
 AUTH_BLUEPRINT = Blueprint('auth', __name__)
 
-@AUTH_BLUEPRINT.route('/auth/login', methods=['POST'])
+@AUTH_BLUEPRINT.route('/login', methods=['POST'])
 def Login():
     username = request.json.get('username')
     password = request.json.get('password')
@@ -16,15 +16,11 @@ def Login():
     user = UserManager.authenticate(username, password)
     if user:
         session['user_id'] = user.id
-        return jsonify({'message': 'Login successful', 'user': {
-            'id': user.id,
-            'username': user.username,
-            'role': user.role
-        }})
+        return jsonify({'message': 'Login successful'})
     else:
-        return jsonify({'error': 'Invalid credentials'}), 401
+        return jsonify({'error': 'Invalid credentials'}), 400
 
-@AUTH_BLUEPRINT.route('/auth/register', methods=['POST'])
+@AUTH_BLUEPRINT.route('/register', methods=['POST'])
 def Register():
     username = request.json.get('username')
     password = request.json.get('password')
@@ -34,21 +30,18 @@ def Register():
 
     # Check if username already exists
     if UserManager.getUser(username=username):
-        return jsonify({'error': 'Username already exists'}), 409
+        return jsonify({'error': 'Username already exists'}), 400
 
     # Default role for new users
     role = 'user'
     try:
         user = UserManager.createUser(username, password, role)
-        return jsonify({'message': 'User registered successfully', 'user': {
-            'id': user.id,
-            'username': user.username,
-            'role': user.role
-        }}), 201
+        return jsonify({'message': 'User registered successfully'
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@AUTH_BLUEPRINT.route('/auth/logout', methods=['POST'])
+@AUTH_BLUEPRINT.route('/logout', methods=['POST'])
 def Logout():
     session.pop('user_id', None)
     return jsonify({'message': 'Logged out successfully'})
