@@ -13,6 +13,15 @@ class SimpleDataCenter:
         self.n_rooms = n_rooms
         self.n_racks = n_racks
         self.n_hosts = n_hosts
+    def toDICT(self):
+        return {
+			"id": self.id,
+			"name": self.name,
+			"height": self.height,
+            "n_rooms": self.n_rooms,
+            "n_racks": self.n_racks,
+            "n_hosts": self.n_hosts
+		}
 
 class SimpleRoom:
     def __init__(self,
