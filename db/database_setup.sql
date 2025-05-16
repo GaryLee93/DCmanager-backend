@@ -1,4 +1,4 @@
-CREATE DATABASE datacenter_management;
+-- CREATE DATABASE datacenter_management;
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

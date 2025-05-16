@@ -11,7 +11,7 @@ COPY db/database_setup.sql /docker-entrypoint-initdb.d/
 EXPOSE 5432
 
 # storage location for PostgreSQL data
-VOLUME ["/var/lib/postgresql/data"]
+# VOLUME ["/var/lib/postgresql/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD pg_isready -U postgres || exit 1
