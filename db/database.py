@@ -472,7 +472,7 @@ class DatacenterManager:
                 for data in datacenters_data:
                     dc_id = data['id']
                     # Get rooms for this datacenter
-                    cursor.execute("SELECT * FROM rooms WHERE datacenter_id = %s", (dc_id,))                    
+                    cursor.execute("SELECT * FROM rooms WHERE id = %s", (dc_id,))                    
                     
                     # Create DataCenter object and append to list
                     datacenters.append(
