@@ -55,8 +55,9 @@ CREATE TABLE racks (
 );
 
 -- Table for company IP ranges
-CREATE TABLE company_ip_ranges (
+CREATE TABLE ip_ranges (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     start_ip INET NOT NULL, -- Start of the IP range
     end_ip INET NOT NULL, -- End of the IP range
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

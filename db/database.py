@@ -61,7 +61,7 @@ class IPRangeManager:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 if datacenter_id:
-                    cursor.execute("SELECT * FROM ip_ranges WHERE datacenter_id = %s", (datacenter_id,))
+                    cursor.execute("SELECT * FROM ip_ranges WHERE dc_id = %s", (datacenter_id,))
                 else:
                     cursor.execute("SELECT * FROM ip_ranges")
                 
@@ -119,9 +119,9 @@ class IPRangeManager:
                 # Insert the new IP range
                 cursor.execute(
                     """
-                    INSERT INTO ip_ranges (datacenter_id, start_ip, end_ip)
+                    INSERT INTO ip_ranges (dc_id, start_ip, end_ip)
                     VALUES (%s, %s, %s)
-                    RETURNING id, datacenter_id, start_ip, end_ip
+                    RETURNING id, dc_id, start_ip, end_ip
                     """,
                     (datacenter_id, start_ip, end_ip)
                 )
