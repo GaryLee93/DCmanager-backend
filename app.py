@@ -15,7 +15,7 @@ app.register_blueprint(HOST_BLUEPRINT, url_prefix="/host")
 app.register_blueprint(SERVICE_BLUEPRINT, url_prefix="/service")
 app.register_blueprint(AUTH_BLUEPRINT, url_prefix="/auth")
 
-CORS(app, resources={r"/*": {"origins": ["http://localhost:*"]}})
+CORS(app)
 
 @app.route("/")
 def hello():
