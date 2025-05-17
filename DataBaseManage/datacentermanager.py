@@ -2,8 +2,8 @@ import psycopg2
 import psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 from utils.schema import DataCenter, SimpleDataCenter, SimpleRoom
-from .iprangemanager import IPRangeManager
-from .connection import BaseManager
+from DataBaseManage import IPRangeManager
+from DataBaseManage.connection import BaseManager
 
 
 class DatacenterManager(BaseManager):

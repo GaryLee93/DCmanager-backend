@@ -1,11 +1,11 @@
-from .connection import test_connection
-from .iprangemanager import IPRangeManager
-from .datacentermanager import DatacenterManager
-from .roommanager import RoomManager
-from .rackmanager import RackManager
-from .hostmanager import HostManager
-from .servicemanager import ServiceManager
-from .usermanager import UserManager
+from DataBaseManage.connection import test_connection
+from DataBaseManage.iprangemanager import IPRangeManager
+from DataBaseManage.datacentermanager import DatacenterManager
+from DataBaseManage.roommanager import RoomManager
+from DataBaseManage.rackmanager import RackManager
+from DataBaseManage.hostmanager import HostManager
+from DataBaseManage.servicemanager import ServiceManager
+from DataBaseManage.usermanager import UserManager
 
 # For easier imports
 __all__ = [

@@ -1,8 +1,9 @@
 import os
+import psycopg2
+import psycopg2.extras
 from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import SimpleRoom, SimpleRack, SimpleHost, SimpleService, SimpleDataCenter
-from .connection import BaseManager
-
+from DataBaseManage.connection import BaseManager
 
 class UserManager(BaseManager):
     """Class for managing User operations"""

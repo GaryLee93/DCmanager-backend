@@ -1,13 +1,14 @@
 import os
 from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import SimpleRoom, SimpleRack, SimpleHost, SimpleService, SimpleDataCenter
-from .connection import BaseManager
+from DataBaseManage.connection import BaseManager
+
 
 
 class HostManager(BaseManager):
 
     # CREATE operations
-    def createHost(self, name, height, ip, rack_id, service_id=None):
+    def createHost(self, name, height, ip, rack_id, service_id=None, pos=None):
         """
         Create a new host in a rack.
         
@@ -17,7 +18,8 @@ class HostManager(BaseManager):
             ip (str): IP address of the host
             rack_id (str): ID of the rack this host belongs to
             service_id (str, optional): ID of the service this host is assigned to
-        
+            pos (int, optional): Position in the rack. If None, will use the next available position.
+
         Returns:
             str: ID of the newly created host
         """
@@ -50,10 +52,15 @@ class HostManager(BaseManager):
                 cursor.execute("SELECT gen_random_uuid()")
                 host_id = cursor.fetchone()[0]
                 
-                # Insert the new host
+                # Calculate position if not provided
+                if pos is None:
+                    cursor.execute("SELECT COALESCE(MAX(pos), 0) + 1 FROM hosts WHERE rack_id = %s", (rack_id,))
+                    pos = cursor.fetchone()[0]
+                
+                # Insert host
                 cursor.execute(
-                    "INSERT INTO hosts (id, name, height, ip, service_id, dc_id, room_id, rack_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                    (host_id, name, height, ip, service_id, datacenter_id, room_id, rack_id)
+                    "INSERT INTO hosts (id, name, height, ip, service_id, dc_id, room_id, rack_id, pos) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (host_id, name, height, ip, service_id, datacenter_id, room_id, rack_id, pos)
                 )
                 
                 # Update the host count in the rack

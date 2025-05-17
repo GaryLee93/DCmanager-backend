@@ -1,7 +1,9 @@
 import os
 from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import SimpleRoom, SimpleRack, SimpleHost, SimpleService, SimpleDataCenter
-from .connection import BaseManager
+from DataBaseManage.connection import BaseManager
+import psycopg2
+import psycopg2.extras
 class ServiceManager(BaseManager):
     """Class for managing service operations"""
 
@@ -184,10 +186,11 @@ class ServiceManager(BaseManager):
                 if ip_list and len(ip_list) > 0:
                     for ip in ip_list:
                         # Insert IP address for this service
+                        # 修改此部分
                         cursor.execute(
                             """
-                            INSERT INTO service_ips (service_id, ip)
-                            VALUES (%s, %s)
+                            INSERT INTO service_ips (service_id, ip, assigned)
+                            VALUES (%s, %s, FALSE)
                             RETURNING id, service_id, ip
                             """,
                             (service_id, ip)

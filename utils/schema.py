@@ -18,7 +18,7 @@ class DataCenter:
                 ):
         self.id = id
         self.name = name
-        self.default_height = height
+        self.height = height
         self.n_rooms = n_rooms
         self.rooms = rooms
         self.n_racks = n_racks
@@ -29,7 +29,7 @@ class DataCenter:
         return {
             "id": self.id,
             "name": self.name,
-            "height": self.default_height,
+            "height": self.height,
             "n_rooms": self.n_rooms,
             "rooms": [room.toDICT() for room in self.rooms],
             "n_racks": self.n_racks,

@@ -1,7 +1,8 @@
 import ipaddress
 import psycopg2.extras
 from utils.schema import IP_range
-from .connection import BaseManager
+from DataBaseManage.connection import BaseManager
+
 
 class IPRangeManager(BaseManager):
     """Class to manage IP ranges in the database"""

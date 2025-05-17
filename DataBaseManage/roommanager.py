@@ -1,7 +1,8 @@
 import os
 from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import SimpleRoom, SimpleRack, SimpleHost, SimpleService, SimpleDataCenter
-from .connection import BaseManager
+from DataBaseManage.connection import BaseManager
+
 
 class RoomManager(BaseManager):  
     # CREATE operations
@@ -32,7 +33,7 @@ class RoomManager(BaseManager):
                 
                 # Insert the new room
                 cursor.execute(
-                    "INSERT INTO rooms (id, name, height, n_racks, n_hosts, datacenter_id) VALUES (%s, %s, %s, 0, 0, %s)",
+                    "INSERT INTO rooms (id, name, height, n_racks, n_hosts, dc_id) VALUES (%s, %s, %s, 0, 0, %s)",
                     (room_id, name, height, datacenter_id)
                 )
                 
@@ -103,7 +104,7 @@ class RoomManager(BaseManager):
                     racks=racks,  # Now using SimpleRack objects
                     n_racks=result['n_racks'],
                     n_hosts=result['n_hosts'],
-                    dc_id=result['datacenter_id']
+                    dc_id=result['dc_id']
                 )
                                 
         except Exception as e:

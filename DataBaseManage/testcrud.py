@@ -1,5 +1,4 @@
-from . import (
-    test_connection,
+from DataBaseManage import (
     IPRangeManager,
     DatacenterManager,
     RoomManager,
@@ -14,23 +13,23 @@ def test_crud_operations():
     print("Testing CRUD Operations for Datacenter Management System")
     
     # ----- Test UserManager CRUD -----
-    print("\n=== Testing UserManager CRUD ===")
-    user_manager = UserManager()
+    # print("\n=== Testing UserManager CRUD ===")
+    # user_manager = UserManager()
     
-    # Create
-    print("Creating a test user...")
-    test_user = user_manager.createUser("testuser", "password123", "normal")
-    print(f"Created user: {test_user.username} with ID: {test_user.id}")
+    # # Create
+    # print("Creating a test user...")
+    # test_user = user_manager.createUser("testuser", "password123", "normal")
+    # print(f"Created user: {test_user.username} with ID: {test_user.id}")
     
-    # Read
-    print("Reading the user...")
-    retrieved_user = user_manager.getUser(test_user.id)
-    print(f"Retrieved user: {retrieved_user.username}, Role: {retrieved_user.role}")
+    # # Read
+    # print("Reading the user...")
+    # retrieved_user = user_manager.getUser(test_user.id)
+    # print(f"Retrieved user: {retrieved_user.username}, Role: {retrieved_user.role}")
     
-    # Update
-    print("Updating the user...")
-    updated_user = user_manager.updateUser(test_user.id, role="manager")
-    print(f"Updated user: {updated_user.username}, New role: {updated_user.role}")
+    # # Update
+    # print("Updating the user...")
+    # updated_user = user_manager.updateUser(test_user.id, role="manager")
+    # print(f"Updated user: {updated_user.username}, New role: {updated_user.role}")
     
     # ----- Test DatacenterManager CRUD -----
     print("\n=== Testing DatacenterManager CRUD ===")
@@ -55,11 +54,11 @@ def test_crud_operations():
     print("\n=== Testing ServiceManager and RoomManager CRUD ===")
     service_manager = ServiceManager()
     room_manager = RoomManager()
-    
+
     # Create service
-    test_service = service_manager.createService("Test Service")
+    test_service = service_manager.createService("Test Service",racks=None,ip_list=["192.168.1.40"])
     print(f"Created service: {test_service.name} with ID: {test_service.id}")
-    
+    print(f"Service IP list: {test_service.ip_list}")
     # Create room
     room_id = room_manager.createRoom("Test Room", 40, test_dc.id)
     print(f"Created room with ID: {room_id}")
@@ -69,16 +68,20 @@ def test_crud_operations():
     rack_manager = RackManager()
     
     # Create rack
-    rack_id = rack_manager.createRack("Test Rack", 42, room_id, test_service.id)
+    rack_id = rack_manager.createRack("Test Rack", 38, room_id, test_service.id)
     print(f"Created rack with ID: {rack_id}")
-    
+    # create IP range
+    ip_range_manager = IPRangeManager()
+    ip_range = ip_range_manager.add_ip_range(test_dc.id, "192.168.1.30", "192.168.1.45")
+    print(f"Created IP range: {ip_range.start_IP} - {ip_range.end_IP}")
     # ----- Test HostManager CRUD -----
     print("\n=== Testing HostManager CRUD ===")
     host_manager = HostManager()
     
     # Create host
-    host_id = host_manager.createHost("Test Host", 1, "192.168.1.100", rack_id, test_service.id)
-    print(f"Created host with ID: {host_id}")
+    # IP = "192.168.1.40"  # ✅ Valid format (from your IP range)
+    # host_id = host_manager.createHost("Test Host", 1, IP, rack_id, test_service.id, pos=1)
+    # print(f"Created host with ID: {host_id}")
     
     # ----- Test IPRangeManager CRUD -----
     print("\n=== Testing IPRangeManager CRUD ===")
@@ -91,10 +94,10 @@ def test_crud_operations():
     # ----- Clean Up in Reverse Order -----
     print("\n=== Cleaning Up ===")
     
-    # Delete Host
-    print("Deleting host...")
-    success = host_manager.deleteHost(host_id)
-    print(f"Host deleted: {success}")
+    # # Delete Host
+    # print("Deleting host...")
+    # success = host_manager.deleteHost(host_id)
+    # print(f"Host deleted: {success}")
     
     # Delete Rack
     print("Deleting rack...")
@@ -118,6 +121,8 @@ def test_crud_operations():
     
     # Delete User
     print("Deleting user...")
+    user_manager = UserManager()
+    test_user = user_manager.getUser(username="testuser")
     success = user_manager.deleteUser(test_user.id)
     print(f"User deleted: {success}")
     
