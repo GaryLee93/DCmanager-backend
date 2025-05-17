@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify
-from db import database
-from utils import schema
+from DataBaseManage import *
 
-ServiceManager = database.ServiceManager()
+ServiceManager = ServiceManager()
 SERVICE_BLUEPRINT = Blueprint('service', __name__)
 
 @SERVICE_BLUEPRINT.route('/', methods=['POST'])

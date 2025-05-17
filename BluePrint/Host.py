@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
-from db import database
+from DataBaseManage import *
 from utils import schema
 import uuid
 
-HostManager = database.HostManager()
+HostManager = HostManager()
 HOST_BLUEPRINT = Blueprint('host', __name__)
 
 @HOST_BLUEPRINT.route('/', methods=['POST'])

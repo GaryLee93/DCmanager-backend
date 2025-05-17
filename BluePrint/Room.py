@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db.database import RoomManager
+from DataBaseManage import *
 from utils import schema
 from .Rack import DeleteRack
 

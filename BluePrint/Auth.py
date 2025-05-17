@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, session
-from db import database
 from utils import schema
+from DataBaseManage import *
 
-UserManager = database.UserManager()
+UserManager = UserManager()
 AUTH_BLUEPRINT = Blueprint('auth', __name__)
 
 @AUTH_BLUEPRINT.route('/login', methods=['POST'])

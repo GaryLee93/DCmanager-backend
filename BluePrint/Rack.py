@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from db.database import RackManager
+from DataBaseManage import *
 from utils import schema
 from .Host import DeleteHost
 
