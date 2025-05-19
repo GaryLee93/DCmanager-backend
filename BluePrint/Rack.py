@@ -10,11 +10,15 @@ RACK_BLUEPRINT = Blueprint("rack", __name__)
 # Complete
 @RACK_BLUEPRINT.route("/", methods=["PUT"])
 def AddNewRack():
-    name = str(request.json.get("name"))
-    height = int(request.json.get("height"))
-    room_id = str(request.json.get("room_id"))
-    dc_id = str(request.json.get("dc_id"))
+    data = request.get_json()
+
+    name = str(data.get("name"))
+    height = int(data.get("height"))
+    room_id = str(data.get("room_id"))
+    dc_id = str(data.get("dc_id"))
+
     rack_id = Rack_Manager.createRack(name, height, room_id, dc_id)
+
     return jsonify({"id", rack_id}), 200
 
 
@@ -26,6 +30,7 @@ def ProcessRack(rack_id):
         return ModifyRack(rack_id)
     elif request.method == "DELETE":
         return DeleteRack(rack_id)
+    return "Method Not Allowed", 405
 
 
 def GetRack(rack_id):
@@ -38,10 +43,10 @@ def GetRack(rack_id):
 
 # database can't update room_id
 def ModifyRack(rack_id):
-    name = str(request.json.get("name"))
-    height = int(request.json.get("height"))
-    service_id = str(request.json.get("service_id"))
-    room_id = str(request.json.get("room_id"))
+    name = str(data.get("name"))
+    height = int(data.get("height"))
+    service_id = str(data.get("service_id"))
+    room_id = str(data.get("room_id"))
 
     if Rack_Manager.getRack(rack_id) == None:
         return "Rack Not Found", 404
@@ -51,7 +56,7 @@ def ModifyRack(rack_id):
 
 
 def DeleteRack(rack_id):
-    force = bool(request.json.get("force"))
+    force = bool(data.get("force"))
     rack = Rack_Manager.getRack(rack_id)
     if rack == None:
         return "Rack Not Found", 404

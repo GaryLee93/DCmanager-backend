@@ -13,7 +13,9 @@ from DataBaseManage.connection import BaseManager
 class RackManager(BaseManager):
 
     # CREATE operations
-    def createRack(self, name, height, room_id, service_id=None):
+    def createRack(
+        self, name: str, height: int, room_id: str, service_id: str | None = None
+    ):
         """
         Create a new rack in a room.
 
@@ -30,8 +32,11 @@ class RackManager(BaseManager):
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                # Check if room exists and get datacenter_id
-                cursor.execute("SELECT id, dc_id FROM rooms WHERE id = %s", (room_id,))
+
+                cursor.execute(
+                    "SELECT id, name, dc_id, dc_name FROM rooms WHERE id = %s",
+                    (room_id,),
+                )
                 room_info = cursor.fetchone()
 
                 if room_info is None:
@@ -112,7 +117,7 @@ class RackManager(BaseManager):
 
                 # Get hosts for this rack
                 cursor.execute(
-                    "SELECT id, name, height, ip, service_id, rack_id, pos FROM hosts WHERE id = %s",
+                    "SELECT id, name, height, ip, service_id, rack_id, pos FROM hosts WHERE rack_id = %s",
                     (rack_id,),
                 )
                 hosts_data = cursor.fetchall()
