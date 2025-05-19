@@ -12,7 +12,7 @@ def AddNewRoom():
     height = int(request.json.get('height'))
     dc_id = str(request.json.get('dc_id'))
     room_id = Room_Manager.createRoom(name, height, dc_id)
-    return jsonify({"id", room_id}), 200
+    return jsonify({"id": room_id}), 200
 
 @ROOM_BLUEPRINT.route('/<room_id>', methods=['GET', 'PUT', 'DELETE'])
 def ProcessRoom(room_id):
@@ -28,7 +28,7 @@ def GetRoom(room_id):
     if room == None:
         return "Room Not Found", 404
     else:
-        return jsonify(room.toDict()), 200
+        return jsonify(room.toDICT()), 200
 
 def ModifyRoom(room_id):
     name = str(request.json.get('name'))

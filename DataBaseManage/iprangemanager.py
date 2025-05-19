@@ -33,6 +33,12 @@ class IPRangeManager(BaseManager):
                     ip_ranges.append(ip_range)
                 
                 return ip_ranges
+            
+        except psycopg2.errors.UndefinedTable as e:
+            # TODO: Temporary fix for missing table
+            print(e)
+            return []
+
         except Exception as e:
             if conn:
                 conn.rollback()
