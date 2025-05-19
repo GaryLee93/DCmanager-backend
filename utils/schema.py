@@ -4,7 +4,7 @@ from enum import Enum
 
 
 @dataclass
-class IP_range:
+class IP_Range:
     start_IP: str
     end_IP: str
 
@@ -18,7 +18,7 @@ class DataCenter:
     rooms: list[SimpleRoom]
     n_racks: int
     n_hosts: int
-    ip_ranges: list[IP_range]
+    ip_ranges: list[IP_Range]
 
 
 @dataclass

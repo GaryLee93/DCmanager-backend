@@ -44,8 +44,12 @@ class ServiceManager(BaseManager):
                         rack = SimpleRack(
                             id=rack_data["id"],
                             name=rack_data["name"],
-                            room_id=rack_data["room_id"],
+                            height=rack_data["height"],
+                            capacity=rack_data["capacity"],
+                            n_hosts=rack_data["n_hosts"],
                             service_id=rack_data["service_id"],
+                            service_name=data["service_name"],
+                            room_id=rack_data["room_id"],
                         )
                         racks.append(rack)
 
@@ -61,8 +65,8 @@ class ServiceManager(BaseManager):
                     return Service(
                         id=data["id"],
                         name=data["name"],
-                        racks=racks,
                         n_racks=data["n_racks"],
+                        racks=racks,
                         n_hosts=data["n_hosts"],
                         total_ip=data["total_ip"],
                         ip_list=ip_list,

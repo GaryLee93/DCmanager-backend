@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import psycopg2.extras
-from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
+from utils.schema import IP_Range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import (
     SimpleRoom,
     SimpleRack,

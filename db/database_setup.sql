@@ -26,6 +26,7 @@ CREATE TABLE rooms (
     n_racks INTEGER DEFAULT 0, -- Number of racks in the room
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the room
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
+    dc_name VARCHAR(255) NOT NULL, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -49,6 +50,7 @@ CREATE TABLE racks (
     capacity INTEGER NOT NULL, -- Remaining capacity of the rack
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the rack
     service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
+    service_name VARCHAR(255), -- Name of the service (redundant for faster access)
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

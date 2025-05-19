@@ -1,5 +1,5 @@
 import os
-from utils.schema import IP_range, DataCenter, Room, Rack, Host, Service, User
+from utils.schema import IP_Range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import (
     SimpleRoom,
     SimpleRack,
@@ -12,7 +12,7 @@ from DataBaseManage.connection import BaseManager
 
 class RoomManager(BaseManager):
     # CREATE operations
-    def createRoom(self, name, height, datacenter_id):
+    def createRoom(self, name: str, height: int, datacenter_id: str) -> str:
         """
         Create a new room in a datacenter.
 
@@ -30,9 +30,10 @@ class RoomManager(BaseManager):
             with conn.cursor() as cursor:
                 # Check if datacenter exists
                 cursor.execute(
-                    "SELECT id FROM datacenters WHERE id = %s", (datacenter_id,)
+                    "SELECT id, name FROM datacenters WHERE id = %s", (datacenter_id,)
                 )
-                if cursor.fetchone() is None:
+                dc_data = cursor.fetchone()
+                if dc_data is None:
                     raise Exception(
                         f"Datacenter with ID {datacenter_id} does not exist"
                     )
@@ -43,8 +44,8 @@ class RoomManager(BaseManager):
 
                 # Insert the new room
                 cursor.execute(
-                    "INSERT INTO rooms (id, name, height, n_racks, n_hosts, dc_id) VALUES (%s, %s, %s, 0, 0, %s)",
-                    (room_id, name, height, datacenter_id),
+                    "INSERT INTO rooms (id, name, height, n_racks, n_hosts, dc_id, dc_name) VALUES (%s, %s, %s, 0, 0, %s, %s)",
+                    (room_id, name, height, dc_data["id"], dc_data["name"]),
                 )
 
                 # Update the room count in the datacenter
@@ -65,7 +66,7 @@ class RoomManager(BaseManager):
                 self.release_connection(conn)
 
     # READ operations
-    def getRoom(self, room_id):
+    def getRoom(self, room_id: str) -> Room | None:
         """
         Get a room by ID.
 
@@ -80,17 +81,16 @@ class RoomManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, name, height, n_racks, n_hosts, dc_id FROM rooms WHERE id = %s",
+                    "SELECT * FROM rooms WHERE id = %s",
                     (room_id,),
                 )
-                result = cursor.fetchone()
+                room_data = cursor.fetchone()
 
-                if result is None:
+                if room_data is None:
                     return None
+
                 # Get full rack information for this room
-                cursor.execute(
-                    "SELECT id, name, height FROM racks WHERE id = %s", (room_id,)
-                )
+                cursor.execute("SELECT * FROM racks WHERE id = %s", (room_id,))
                 racks_data = cursor.fetchall()
 
                 # Create SimpleRack objects
@@ -101,19 +101,24 @@ class RoomManager(BaseManager):
                             id=rack_data["id"],
                             name=rack_data["name"],
                             height=rack_data["height"],
+                            capacity=rack_data["capacity"],
+                            n_hosts=rack_data["n_hosts"],
+                            service_id=rack_data["service_id"],
+                            service_name=rack_data["service_name"],
                             room_id=room_id,
                         )
                     )
 
                 # Create and return the Room object
                 return Room(
-                    id=result["id"],
-                    name=result["name"],
-                    height=result["height"],
-                    racks=racks,  # Now using SimpleRack objects
-                    n_racks=result["n_racks"],
-                    n_hosts=result["n_hosts"],
-                    dc_id=result["dc_id"],
+                    id=room_data["id"],
+                    name=room_data["name"],
+                    height=room_data["height"],
+                    n_racks=room_data["n_racks"],
+                    racks=racks,
+                    n_hosts=room_data["n_hosts"],
+                    dc_id=room_data["dc_id"],
+                    dc_name=room_data["dc_name"],
                 )
 
         except Exception as e:
@@ -123,7 +128,13 @@ class RoomManager(BaseManager):
                 self.release_connection(conn)
 
     # UPDATE operations
-    def updateRoom(self, room_id, name=None, height=None):
+    def updateRoom(
+        self,
+        room_id: str,
+        name: str | None = None,
+        height: int | None = None,
+        dc_id: str | None = None,
+    ) -> bool:
         """
         Update a room's information.
 
@@ -131,6 +142,7 @@ class RoomManager(BaseManager):
             room_id (str): ID of the room to update
             name (str, optional): New name for the room
             height (int, optional): New height for the room
+            dc_id (str, optional): New datacenter ID for the room
 
         Returns:
             bool: True if room was successfully updated, False if not found
@@ -155,6 +167,10 @@ class RoomManager(BaseManager):
                 if height is not None:
                     query_parts.append("height = %s")
                     update_params.append(height)
+
+                if dc_id is not None:
+                    # implement logic to modify datacenter
+                    pass
 
                 if not query_parts:
                     # Nothing to update
