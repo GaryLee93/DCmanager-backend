@@ -46,6 +46,7 @@ CREATE TABLE racks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     height INTEGER NOT NULL, -- Height of the rack
+    capacity INTEGER NOT NULL, -- Remaining capacity of the rack
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the rack
     service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
@@ -81,6 +82,7 @@ CREATE TABLE hosts (
     name VARCHAR(255) NOT NULL, -- Name of the host
     height INTEGER NOT NULL CHECK (height >= 1 AND height <= 4), -- Height of the host (1-4 units)
     ip INET, -- IP address of the host
+    running BOOLEAN DEFAULT FALSE, -- Whether the host is running
     service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
