@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from utils import schema
 from .Host import DeleteHost
@@ -29,33 +29,28 @@ def ProcessRack(rack_id):
         room_id = str(data.get('room_id'))
         return ModifyRack(rack_id, name, height, service_id, room_id)
     elif request.method == 'DELETE':
-        force = bool(data.get('force'))
-        return DeleteRack(rack_id, force)
+        return DeleteRack(rack_id)
     
 def GetRack(rack_id):
     rack = Rack_Manager.getRack(rack_id)
     if rack == None:
-        return "Rack Not Found", 404
+        return Response(status = 404)
     else:
         return jsonify(rack.toDICT()), 200
 
 # database can't update room_id
 def ModifyRack(rack_id, name, height, service_id, room_id):
     if Rack_Manager.getRack(rack_id) == None:
-        return "Rack Not Found", 404
+        return Response(status = 404)
     else:
         Rack_Manager.updateRack(rack_id, name, height, service_id, room_id)
-        return "Rack modified successfully!", 200
+        return Response(status = 200)
 
-def DeleteRack(rack_id, force):
+def DeleteRack(rack_id):
     rack = Rack_Manager.getRack(rack_id)
     if rack == None:
-        return "Rack Not Found", 404
-    if force:
-        for host in rack.hosts:
-            DeleteHost(host.id)
-        Rack_Manager.deleteRack(rack_id)
-    else:
-        return "you are not super user", 401
-    
-    return "Rack deleted successfully!", 200
+        return Response(status = 404)
+    for host in rack.hosts:
+        DeleteHost(host.id)
+    Rack_Manager.deleteRack(rack_id)
+    return Response(status = 200)

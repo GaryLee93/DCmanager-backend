@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from utils import schema
 from .Rack import DeleteRack
@@ -26,31 +26,29 @@ def ProcessRoom(room_id):
         dc_id = str(data.get('dc_id'))
         return ModifyRoom(room_id, name, height, dc_id)
     elif request.method == 'DELETE':
-        force = bool(data.get("force"))
-        return DeleteRoom(room_id, force)
+        return DeleteRoom(room_id)
 
 def GetRoom(room_id):
     room = Room_Manager.getRoom(room_id)
     if room == None:
-        return "Room Not Found", 404
+        return Response(status = 404)
     else:
         return jsonify(room.toDICT()), 200
 
+
+## not complete
 def ModifyRoom(room_id, name, height, dc_id):
     if Room_Manager.getRoom(room_id) == None:
-        return "Room Not Found", 404
+        return Response(status = 404)
     Room_Manager.updateRoom(room_id, name, height)
-    return "modify room", 200
+    return Response(status = 200)
 
-def DeleteRoom(room_id, force):
+def DeleteRoom(room_id):
     room = Room_Manager.getRoom(room_id)
     if room == None:
-        return "Room Not Found", 404
-    if force:
-        for rack in room.racks:
-            DeleteRack(rack.id, force=True)
-        Room_Manager.deleteRoom(room_id)
-    else:
-        return "you are not super user", 401
-    return "delete room", 200
+        return Response(status = 404)
+    for rack in room.racks:
+        DeleteRack(rack.id)
+    Room_Manager.deleteRoom(room_id)
+    return Response(status = 200)
 

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from utils import schema
 from .Room import DeleteRoom
@@ -15,7 +15,7 @@ def AddNewDC():
     name = str(data.get('name'))
     height = int(data.get('height'))
     id = DC_manager.createDatacenter(name, height)
-    return jsonify({"id": str(id)}), 200
+    return Response(status = 200)
 
 @DATA_CENTER_BLUEPRINT.route('/all', methods=['GET'])
 def GetAllDC():
@@ -35,10 +35,7 @@ def ProcessDC(dc_id):
         height = int(data.get('height'))
         return ModifyDC(dc_id, name, height)
     elif request.method == 'DELETE':
-        force = bool(data.get("force"))
-        if force == None:
-            return 
-        return DeleteDC(dc_id, force)
+        return DeleteDC(dc_id)
     return jsonify({"error": "Invalid Method"}), 400
 
 def GetDC(dc_id):
@@ -52,16 +49,13 @@ def ModifyDC(dc_id, name, height):
     if(DC_manager.getDatacenter(dc_id) == None):
         return jsonify({"error":"Data Center Not Found"}), 404
     DC_manager.updateDatacenter(dc_id, name, height)
-    return 200
+    return Response(status = 200)
 
-def DeleteDC(dc_id, force):
+def DeleteDC(dc_id):
     datacenter = DC_manager.getDatacenter(dc_id)
     if datacenter == None:
         return jsonify({"error":"Data Center Not Found"}), 404
-    if force:
-        for room in datacenter.rooms:
-            DeleteRoom(room.id, force=True)
-        DC_manager.deleteDatacenter(dc_id)
-    else:
-        return jsonify({"error":"you are not superuser"}), 401
-    return 200
+    for room in datacenter.rooms:
+        DeleteRoom(room.id)
+    DC_manager.deleteDatacenter(dc_id)
+    return Response(status =200)
