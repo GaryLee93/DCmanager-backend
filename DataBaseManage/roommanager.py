@@ -162,7 +162,38 @@ class RoomManager(BaseManager):
 
                 if dc_id is not None:
                     # TODO: implement logic of moving room to a new dc
-                    pass
+                    # check if new datacenter exists
+                    cursor.execute(
+                        "SELECT id FROM datacenters WHERE id = %s", (dc_id,)
+                    )
+                    if cursor.fetchone() is None:
+                        raise Exception(
+                            f"Datacenter with ID {dc_id} does not exist"
+                        )
+                    # delete the room from the old datacenter
+                    # find datacenter id
+                    cursor.execute(
+                        "SELECT dc_id FROM rooms WHERE id = %s", (room_id,)
+                    )
+                    old_dc_id = cursor.fetchone()["dc_id"]
+                    cursor.execute(
+                        "UPDATE datacenters SET n_rooms = n_rooms - 1 WHERE id = %s",
+                        (old_dc_id,),
+                    )
+                    # add the room to the new datacenter
+                    cursor.execute(
+                        "UPDATE datacenters SET n_rooms = n_rooms + 1 WHERE id = %s",
+                        (dc_id,),
+                    )
+                    query_parts.append("dc_id = %s")
+                    update_params.append(dc_id)
+                    query_parts.append("dc_name = %s")
+                    # get the name of the new datacenter
+                    cursor.execute(
+                        "SELECT name FROM datacenters WHERE id = %s", (dc_id,)
+                    )
+                    dc_name = cursor.fetchone()["name"]
+                    update_params.append(dc_name)
 
                 if not query_parts:
                     # Nothing to update
