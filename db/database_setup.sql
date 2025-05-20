@@ -8,8 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Table for datacenters, storing basic information and statistics
 CREATE TABLE datacenters (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) PRIMARY KEY, -- Name of the datacenter
     height INTEGER NOT NULL, -- Height of the datacenter
     n_rooms INTEGER DEFAULT 0, -- Number of rooms in the datacenter
     n_racks INTEGER DEFAULT 0, -- Number of racks in the datacenter
@@ -20,65 +19,45 @@ CREATE TABLE datacenters (
 
 -- Table for rooms, linked to datacenters
 CREATE TABLE rooms (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) PRIMARY KEY, -- Name of the room
     height INTEGER NOT NULL, -- Height of the room
     n_racks INTEGER DEFAULT 0, -- Number of racks in the room
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the room
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Table for services
+-- Todo: dc link
 CREATE TABLE services (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL, -- Name of the service
+    name VARCHAR(255) PRIMARY KEY, -- Name of the service
     n_racks INTEGER DEFAULT 0, -- Number of racks assigned to service
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the service
+    subnet VARCHAR(255) NOT NULL, -- Subnet for the service
     total_ip INTEGER DEFAULT 0, -- Total IPs allocated to this service
     available_ip INTEGER DEFAULT 0, -- Available IPs for this service
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
-    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Table for racks, linked to rooms, datacenters, and services
 CREATE TABLE racks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) PRIMARY KEY, -- Name of the rack
     height INTEGER NOT NULL, -- Height of the rack
     capacity INTEGER NOT NULL, -- Remaining capacity of the rack
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the rack
-    service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
-    service_name VARCHAR(255), -- Name of the service (redundant for faster access)
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
+    service_name VARCHAR(255) NOT NULL REFERENCES services(name) ON UPDATE CASCADE, -- Name of the service (redundant for faster access)
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
-    room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
     room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table for company IP ranges
-CREATE TABLE ip_ranges (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
-    start_ip INET NOT NULL, -- Start of the IP range
-    end_ip INET NOT NULL, -- End of the IP range
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT valid_range CHECK (start_ip <= end_ip) -- Ensure start IP is less than or equal to end IP
-);
-
 -- Table for service IPs
-CREATE TABLE service_ips (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    ip INET NOT NULL, -- IP address
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
-    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE, -- Foreign key to services
+CREATE TABLE IPs (
+    ip INET PRIMARY KEY, -- IP address
+    service_name VARCHAR(255) NOT NULL REFERENCES services(name) ON UPDATE CASCADE, -- Name of the service (redundant for faster access)
     assigned BOOLEAN DEFAULT FALSE, -- Whether this IP is assigned to a host
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -86,18 +65,13 @@ CREATE TABLE service_ips (
 
 -- Table for hosts, linked to racks, rooms, datacenters, and services
 CREATE TABLE hosts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL, -- Name of the host
-    height INTEGER NOT NULL CHECK (height >= 1 AND height <= 4), -- Height of the host (1-4 units)
-    ip INET, -- IP address of the host
+    name VARCHAR(255) PRIMARY KEY, -- Name of the host
+    height INTEGER NOT NULL,
+    ip INET REFERENCES IPs(ip) ON UPDATE CASCADE, -- IP address (linked to service_ips)
     running BOOLEAN DEFAULT FALSE, -- Whether the host is running
-    service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
     service_name VARCHAR(255), -- Name of the service (redundant for faster access)
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
-    room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
     room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
-    rack_id UUID NOT NULL REFERENCES racks(id) ON DELETE CASCADE, -- Foreign key to racks
     rack_name VARCHAR(255) NOT NULL REFERENCES racks(name) ON UPDATE CASCADE, -- Name of the rack (redundant for faster access)
     pos INTEGER NOT NULL, -- Position of the host in the rack
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
