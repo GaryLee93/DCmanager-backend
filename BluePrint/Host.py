@@ -13,11 +13,10 @@ def AddHost():
     """Add a new host to the system"""
     data = request.get_json()
 
-    # Required fields
+    # TODO
     name = data.get("name")
     height = data.get("height")
-    rack_id = data.get("rack_id")
-    service_id = data.get("service_id")
+    rack_name = data.get("rack_name")
     pos = data.get("pos")
 
     if not all([name, height, rack_id, pos, service_id]):
@@ -55,10 +54,13 @@ def ModifyHost(host_id):
 
     data = request.get_json()
 
+    # TODO
+    old_name = str(data.get("old_name"))
     name = data.get("name")
     height = data.get("height")
     running = data.get("running")
-    rack_id = data.get("rack_id")
+    rack_name = data.get("rack_name")
+    pos = data.get("pos")
 
     result = Host_Manager.updateHost(host_id, name, height, running, rack_id)
     if result == False:

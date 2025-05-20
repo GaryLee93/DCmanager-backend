@@ -11,13 +11,14 @@ RACK_BLUEPRINT = Blueprint("rack", __name__)
 def AddNewRack():
     data = request.get_json()
 
+    # TODO
     name = str(data.get("name"))
     height = int(data.get("height"))
-    room_id = str(data.get("room_id"))
+    room_name = str(data.get("room_name"))
 
     rack_id = Rack_Manager.createRack(name, height, room_id)
 
-    return jsonify({"id", rack_id}), 200
+    return "Success", 200
 
 
 @RACK_BLUEPRINT.route("/<rack_id>", methods=["GET", "PUT", "DELETE"])
@@ -43,10 +44,11 @@ def GetRack(rack_id):
 def ModifyRack(rack_id):
     data = request.get_json()
 
+    # TODO
+    old_name = str(data.get("old_name"))
     name = str(data.get("name"))
     height = int(data.get("height"))
-    service_id = str(data.get("service_id"))
-    room_id = str(data.get("room_id"))
+    room_name = str(data.get("room_name"))
 
     if Rack_Manager.getRack(rack_id) == None:
         return "Rack Not Found", 404

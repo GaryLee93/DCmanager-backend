@@ -35,6 +35,7 @@ class SimpleHost:
     height: int
     ip: str
     running: bool
+    service_name: str
     dc_name: str
     room_name: str
     rack_name: str

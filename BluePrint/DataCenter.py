@@ -12,11 +12,9 @@ DATA_CENTER_BLUEPRINT = Blueprint("dc", __name__)
 def AddNewDC():
     data = request.get_json()
 
+    # TODO
     name = str(data.get("name"))
     height = int(data.get("height"))
-    ip_ranges = list(data.get("ip_ranges"))
-
-    id = DC_manager.createDatacenter(name, height, ip_ranges)
 
     return jsonify({"id": str(id)}), 200
 
@@ -52,14 +50,14 @@ def GetDC(dc_id):
 def ModifyDC(dc_id):
     data = request.get_json()
 
+    # TODO
+    old_name = str(data.get("old_name"))
     name = str(data.get("name"))
     height = int(data.get("height"))
-    ip_ranges = list(data.get("ip_ranges"))
 
     if DC_manager.getDatacenter(dc_id) == None:
         return "Data Center Not Found", 404
 
-    DC_manager.updateDatacenter(dc_id, name, height, ip_ranges)
     return "Modify Data Center", 200
 
 
@@ -71,7 +69,7 @@ def DeleteDC(dc_id):
 
     # delete all objects in the datacenter
     for room in datacenter.rooms:
-        DeleteRoom(room.id)
+        DeleteRoom(room)
     DC_manager.deleteDatacenter(dc_id)
 
     return "Delete Data Center", 200

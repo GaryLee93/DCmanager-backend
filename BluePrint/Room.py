@@ -11,9 +11,10 @@ ROOM_BLUEPRINT = Blueprint("room", __name__)
 def AddNewRoom():
     data = request.get_json()
 
+    # TODO
     name = str(data.get("name"))
     height = int(data.get("height"))
-    dc_id = str(data.get("dc_id"))
+    dc_name = str(data.get("dc_name"))
 
     room_id = Room_Manager.createRoom(name, height, dc_id)
 
@@ -42,9 +43,11 @@ def GetRoom(room_id):
 def ModifyRoom(room_id):
     data = request.get_json()
 
+    # TODO
+    old_name = str(data.get("old_name"))
     name = str(data.get("name"))
     height = int(data.get("height"))
-    dc_id = str(data.get("dc_id"))
+    dc_name = str(data.get("dc_name"))
 
     if Room_Manager.getRoom(room_id) == None:
         return "Room Not Found", 404
