@@ -10,9 +10,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE datacenters (
     name VARCHAR(255) PRIMARY KEY, -- Name of the datacenter
     height INTEGER NOT NULL, -- Height of the datacenter
-    n_rooms INTEGER DEFAULT 0, -- Number of rooms in the datacenter
-    n_racks INTEGER DEFAULT 0, -- Number of racks in the datacenter
-    n_hosts INTEGER DEFAULT 0, -- Number of hosts in the datacenter
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -21,22 +18,15 @@ CREATE TABLE datacenters (
 CREATE TABLE rooms (
     name VARCHAR(255) PRIMARY KEY, -- Name of the room
     height INTEGER NOT NULL, -- Height of the room
-    n_racks INTEGER DEFAULT 0, -- Number of racks in the room
-    n_hosts INTEGER DEFAULT 0, -- Number of hosts in the room
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Table for services
--- Todo: dc link
 CREATE TABLE services (
     name VARCHAR(255) PRIMARY KEY, -- Name of the service
-    n_racks INTEGER DEFAULT 0, -- Number of racks assigned to service
-    n_hosts INTEGER DEFAULT 0, -- Number of hosts in the service
     subnet VARCHAR(255) NOT NULL, -- Subnet for the service
-    total_ip INTEGER DEFAULT 0, -- Total IPs allocated to this service
-    available_ip INTEGER DEFAULT 0, -- Available IPs for this service
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -45,8 +35,6 @@ CREATE TABLE services (
 CREATE TABLE racks (
     name VARCHAR(255) PRIMARY KEY, -- Name of the rack
     height INTEGER NOT NULL, -- Height of the rack
-    capacity INTEGER NOT NULL, -- Remaining capacity of the rack
-    n_hosts INTEGER DEFAULT 0, -- Number of hosts in the rack
     service_name VARCHAR(255) NOT NULL REFERENCES services(name) ON UPDATE CASCADE, -- Name of the service (redundant for faster access)
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
