@@ -53,18 +53,6 @@ class RackManager(BaseManager):
                     ),
                 )
 
-                # Update the rack count in the room
-                cursor.execute(
-                    "UPDATE rooms SET n_racks = n_racks + 1 WHERE id = %s",
-                    (room_data["id"],),
-                )
-
-                # Update the rack count in the datacenter
-                cursor.execute(
-                    "UPDATE datacenters SET n_racks = n_racks + 1 WHERE id = %s",
-                    (room_data["dc_id"],),
-                )
-
                 conn.commit()
                 return rack_id
 
@@ -204,7 +192,14 @@ class RackManager(BaseManager):
 
                 if room_id is not None:
                     # TODO: implement logic of moving rack to a new room
-                    pass
+                    # check if new room exists
+                    cursor.execute(
+                        "SELECT id FROM rooms WHERE id = %s", (room_id,)
+                    )
+                    if cursor.fetchone() is None:
+                        raise Exception(f"Room with ID {room_id} does not exist")
+                    query_parts.append("room_id = %s")
+                    update_params.append(room_id)
 
                 if not query_parts:
                     # Nothing to update
@@ -214,25 +209,6 @@ class RackManager(BaseManager):
                 update_params.append(rack_id)
 
                 cursor.execute(query, tuple(update_params))
-
-                # Update service counts if service_id has changed
-                if service_id is not None and service_id != current_service_id:
-                    # Decrement rack count in old service if it exists
-                    if current_service_id is not None:
-                        cursor.execute(
-                            "UPDATE services SET n_racks = n_racks - 1 WHERE id = %s",
-                            (current_service_id,),
-                        )
-
-                    # Increment rack count in new service
-                    cursor.execute(
-                        "UPDATE services SET n_racks = n_racks + 1 WHERE id = %s",
-                        (service_id,),
-                    )
-                # Update the room count in the room
-                cursor.execute(
-                    "UPDATE rooms SET n_racks = n_racks + 1 WHERE id = %s", (room_id,)
-                )
 
                 conn.commit()
 
@@ -291,25 +267,6 @@ class RackManager(BaseManager):
 
                 # Delete the rack
                 cursor.execute("DELETE FROM racks WHERE id = %s", (rack_id,))
-
-                # Update the rack count in the room
-                cursor.execute(
-                    "UPDATE rooms SET n_racks = n_racks - 1 WHERE id = %s", (room_id,)
-                )
-
-                # Update the rack count in the datacenter
-                cursor.execute(
-                    "UPDATE datacenters SET n_racks = n_racks - 1 WHERE id = %s",
-                    (datacenter_id,),
-                )
-
-                # Update the rack count in the service (if assigned to a service)
-                if service_id is not None:
-                    cursor.execute(
-                        "UPDATE services SET n_racks = n_racks - 1 WHERE id = %s",
-                        (service_id,),
-                    )
-
                 conn.commit()
 
                 # Check if any rows were affected
