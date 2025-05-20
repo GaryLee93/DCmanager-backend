@@ -54,6 +54,7 @@ class Service:
     name: str
     allocated_racks: list[SimpleRack]
     hosts: list[SimpleHost]
+    username: int
     allocated_subnet: str
     total_ip_list: list[str]
     available_ip_list: list[str]

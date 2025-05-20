@@ -27,6 +27,7 @@ CREATE TABLE rooms (
 CREATE TABLE services (
     name VARCHAR(255) PRIMARY KEY, -- Name of the service
     subnet VARCHAR(255) NOT NULL, -- Subnet for the service
+    username VARCHAR(255) NOT NULL REFERENCES User(username) ON UPDATE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -69,8 +70,7 @@ CREATE TABLE hosts (
 
 -- Table for users, with permissions
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    username VARCHAR(255) NOT NULL UNIQUE, -- Unique username
+    username VARCHAR(255) PRIMARY KEY, -- Unique username
     password VARCHAR(255) NOT NULL, -- Password (hashed)
     role VARCHAR(50) NOT NULL CHECK (role IN ('normal', 'manager')), -- User role (changed from permission to role)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
