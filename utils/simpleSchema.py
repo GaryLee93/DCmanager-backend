@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 @dataclass
 class SimpleDataCenter:
-    id: str
     name: str
     height: int
     n_rooms: int
@@ -13,44 +12,40 @@ class SimpleDataCenter:
 
 @dataclass
 class SimpleRoom:
-    id: str
     name: str
     height: int
     n_racks: int
     n_hosts: int
-    dc_id: str
+    dc_name: str
 
 
 @dataclass
 class SimpleRack:
-    id: str
     name: str
     height: int
     capacity: int  # 還剩多少容量
     n_hosts: int
-    service_id: str
     service_name: str
-    room_id: str
+    room_name: str
 
 
 @dataclass
 class SimpleHost:
-    id: str
     name: str
     height: int
     ip: str
     running: bool
-    rack_id: str
+    dc_name: str
+    room_name: str
+    rack_name: str
     pos: int  # 在rack的第幾個位置
 
 
 @dataclass
 class SimpleService:
-    id: str
     name: str
-    n_racks: int
+    n_allocated_racks: int
     n_hosts: int
-    total_ip: int
-    available_ip: int
-    dc_id: str
-    dc_name: str
+    allocated_subnet: str
+    total_ip_list: list[str]
+    available_ip_list: list[str]
