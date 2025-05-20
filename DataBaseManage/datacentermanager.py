@@ -52,7 +52,6 @@ class DatacenterManager(BaseManager):
                     name=new_datacenter["name"],
                     height=new_datacenter["height"],
                     n_rooms=0,  # New datacenter has no rooms yet
-                    rooms=[],  # New datacenter has no rooms yet
                     n_racks=0,  # New datacenter has no racks yet
                     n_hosts=0,  # New datacenter has no hosts yet
                 )
@@ -65,7 +64,7 @@ class DatacenterManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def getDatacenter(self, datacenter_id: str) -> DataCenter | None:
+    def getDatacenter(self, datacenter_name: str) -> DataCenter | None:
         """
         Get datacenters information.
         """
@@ -75,43 +74,54 @@ class DatacenterManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # Get the specific datacenter
                 cursor.execute(
-                    "SELECT * FROM datacenters WHERE id = %s", (datacenter_id,)
+                    "SELECT * FROM datacenters WHERE name = %s", (datacenter_name,)
                 )
                 data = cursor.fetchone()
                 if not data:
                     return None
 
                 # Get rooms for this datacenter
-                cursor.execute("SELECT * FROM rooms WHERE dc_id = %s", (datacenter_id,))
+                cursor.execute("SELECT * FROM rooms WHERE dc_name = %s", (datacenter_name,))
                 rooms_data = cursor.fetchall()
 
                 # Convert to SimpleRoom objects
-                rooms = [
-                    SimpleRoom(
-                        id=room_data["id"],
-                        name=room_data["name"],
-                        height=room_data["height"],
-                        n_racks=room_data["n_racks"],
-                        n_hosts=room_data["n_hosts"],
-                        dc_id=room_data["dc_id"],
+                rooms = [ ]
+                all_racks_num = 0
+                all_hosts_num = 0
+                for room_data in rooms_data:
+                    room_name = room_data["name"]
+                    room_height = room_data["height"]
+                    # count racks in this room
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM racks WHERE room_name = %s", (room_name,)
                     )
-                    for room_data in rooms_data
-                ]
-
-                # Get IP ranges for this datacenter
-                ip_range_manager = IPRangeManager()
-                ip_ranges = ip_range_manager.get_ip_ranges(datacenter_id)
+                    n_racks = cursor.fetchone()["count"]
+                    # count hosts in this room
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM hosts WHERE room_name = %s", (room_name,)
+                    )
+                    n_hosts = cursor.fetchone()["count"]
+                    # Create SimpleRoom object
+                    rooms.append(
+                        SimpleRoom(
+                            name=room_name,
+                            height=room_height,
+                            n_racks=n_racks,
+                            n_hosts=n_hosts,
+                            dc_name=datacenter_name,
+                        )
+                    )
+                    all_racks_num += n_racks
+                    all_hosts_num += n_hosts
 
                 # Create and return a DataCenter object
                 return DataCenter(
-                    id=data["id"],
                     name=data["name"],
                     height=data["height"],
                     rooms=rooms,
-                    n_rooms=data["n_rooms"],
-                    n_racks=data["n_racks"],
-                    n_hosts=data["n_hosts"],
-                    ip_ranges=ip_ranges,
+                    n_rooms=len(rooms),
+                    n_racks=all_racks_num,
+                    n_hosts=all_hosts_num,
                 )
         except Exception as e:
             if conn:
@@ -140,21 +150,34 @@ class DatacenterManager(BaseManager):
 
                 # Process each datacenter
                 for data in datacenters_data:
-                    datacenter_id = data["id"]
+                    datacenter_name = data["name"]
                     # Get rooms for this datacenter
                     cursor.execute(
-                        "SELECT * FROM rooms WHERE dc_id = %s", (datacenter_id,)
+                        "SELECT * FROM rooms WHERE dc_name = %s", (datacenter_name,)
                     )
-
+                    # Count the number of rooms
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM rooms WHERE dc_name = %s", (datacenter_name,)
+                    )
+                    n_rooms = cursor.fetchone()["count"]
+                    # Count the number of racks
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM racks WHERE dc_name = %s", (datacenter_name,)
+                    )
+                    n_racks = cursor.fetchone()["count"]
+                    # Count the number of hosts
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM hosts WHERE dc_name = %s", (datacenter_name,)
+                    )
+                    n_hosts = cursor.fetchone()["count"]
                     # Create DataCenter object and append to list
                     datacenters.append(
                         SimpleDataCenter(
-                            id=data["id"],
                             name=data["name"],
                             height=data["height"],
-                            n_rooms=data["n_rooms"],
-                            n_racks=data["n_racks"],
-                            n_hosts=data["n_hosts"],
+                            n_rooms=n_rooms,
+                            n_racks=n_racks,
+                            n_hosts=n_hosts,
                         )
                     )
 
@@ -170,19 +193,17 @@ class DatacenterManager(BaseManager):
 
     def updateDatacenter(
         self,
-        datacenter_id: str,
-        name: str | None = None,
+        old_name: str,
+        new_name: str | None = None,
         default_height: int | None = None,
-        ip_ranges: list[IP_Range] | None = None,
     ) -> bool:
         """
         Update an existing datacenter in the database.
 
         Args:
-            datacenter_id (str): ID of the datacenter to update
-            name (str, optional): New name for the datacenter
+            old_name (str): name of the datacenter to update
+            new_name (str, optional): New name for the datacenter
             default_height (int, optional): New default rack height for the datacenter
-            ip_ranges (list[IP_Range], optional): New IP ranges for the datacenter
 
         Returns:
             bool: True if datacenter was successfully updated, False if not found
@@ -193,7 +214,7 @@ class DatacenterManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if datacenter exists
                 cursor.execute(
-                    "SELECT * FROM datacenters WHERE id = %s", (datacenter_id,)
+                    "SELECT * FROM datacenters WHERE name = %s", (old_name,)
                 )
                 if cursor.fetchone() is None:
                     return False
@@ -202,9 +223,9 @@ class DatacenterManager(BaseManager):
                 query_parts = []
                 update_params = []
 
-                if name is not None:
+                if new_name is not None:
                     query_parts.append("name = %s")
-                    update_params.append(name)
+                    update_params.append(new_name)
 
                 if default_height is not None:
                     query_parts.append("height = %s")
@@ -217,21 +238,11 @@ class DatacenterManager(BaseManager):
                     query_parts.append("updated_at = CURRENT_TIMESTAMP")
 
                     # Build and execute update query
-                    query = f"UPDATE datacenters SET {', '.join(query_parts)} WHERE id = %s RETURNING *"
-                    update_params.append(datacenter_id)
+                    query = f"UPDATE datacenters SET {', '.join(query_parts)} WHERE name = %s RETURNING *"
+                    update_params.append(new_name)
 
                     cursor.execute(query, update_params)
                     conn.commit()
-
-                # Handle IP ranges if provided
-                ip_range_manager = IPRangeManager()
-                if ip_ranges is not None:
-                    ip_range_manager.delete_ip_range_under_dc(datacenter_id)
-
-                    for ip_range in ip_ranges:
-                        ip_range_manager.add_ip_range(
-                            datacenter_id, ip_range.start_IP, ip_range.end_IP
-                        )
 
                 return True
 
@@ -243,12 +254,12 @@ class DatacenterManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def deleteDatacenter(self, datacenter_id):
+    def deleteDatacenter(self, datacenter_name: str) -> bool:
         """
         Delete a datacenter from the database.
 
         Args:
-            datacenter_id (str): ID of the datacenter to delete
+            datacenter_name (str): name of the datacenter to delete
 
         Returns:
             bool: True if datacenter was successfully deleted, False if not found
@@ -259,30 +270,25 @@ class DatacenterManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if datacenter exists
                 cursor.execute(
-                    "SELECT id FROM datacenters WHERE id = %s", (datacenter_id,)
+                    "SELECT name FROM datacenters WHERE name = %s", (datacenter_name,)
                 )
                 if cursor.fetchone() is None:
                     return False
 
                 # Check if datacenter has any rooms
                 cursor.execute(
-                    "SELECT COUNT(*) FROM rooms WHERE dc_id = %s", (datacenter_id,)
+                    "SELECT COUNT(*) FROM rooms WHERE name = %s", (datacenter_name,)
                 )
                 room_count = cursor.fetchone()["count"]
 
                 if room_count > 0:
                     raise Exception(
-                        f"Cannot delete datacenter with ID {datacenter_id} because it contains {room_count} rooms"
+                        f"Cannot delete datacenter with ID {datacenter_name} because it contains {room_count} rooms"
                     )
-
-                # Delete associated IP ranges first
-                cursor.execute(
-                    "DELETE FROM ip_ranges WHERE dc_id = %s", (datacenter_id,)
-                )
 
                 # Delete the datacenter
                 cursor.execute(
-                    "DELETE FROM datacenters WHERE id = %s", (datacenter_id,)
+                    "DELETE FROM datacenters WHERE name = %s", (datacenter_name,)
                 )
                 conn.commit()
 
