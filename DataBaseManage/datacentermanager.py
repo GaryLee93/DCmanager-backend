@@ -240,13 +240,8 @@ class DatacenterManager(BaseManager):
                 # Handle IP ranges if provided
                 ip_range_manager = IPRangeManager()
                 if ip_ranges is not None:
-                    # Delete existing IP ranges for this datacenter
-                    cursor.execute(
-                        "DELETE FROM ip_ranges WHERE id = %s", (datacenter_id,)
-                    )
-                    conn.commit()
+                    ip_range_manager.delete_ip_range_under_dc(datacenter_id)
 
-                    # Add new IP ranges
                     for ip_range in ip_ranges:
                         ip_range_manager.add_ip_range(
                             datacenter_id, ip_range.start_IP, ip_range.end_IP

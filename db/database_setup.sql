@@ -77,6 +77,7 @@ CREATE TABLE ip_ranges (
 CREATE TABLE service_ips (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ip INET NOT NULL, -- IP address
+    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE, -- Foreign key to services
     assigned BOOLEAN DEFAULT FALSE, -- Whether this IP is assigned to a host
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

@@ -49,7 +49,7 @@ class IPRangeManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def add_ip_range(self, datacenter_id, start_ip, end_ip):
+    def add_ip_range(self, datacenter_id: str, start_ip: str, end_ip: str) -> IP_Range:
         """
         Add a new IP range to a datacenter.
 
@@ -61,21 +61,24 @@ class IPRangeManager(BaseManager):
         Returns:
             IP_Range: The newly created IP range object
         """
-        # Validate IP addresses
-        try:
-            import ipaddress
-
-            start = ipaddress.ip_address(start_ip)
-            end = ipaddress.ip_address(end_ip)
-            if start > end:
-                raise ValueError("Start IP must be less than or equal to End IP")
-        except ValueError as e:
-            raise ValueError(f"Invalid IP address format: {e}")
-
         conn = None
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+
+                # Validate IP addresses
+                start = ipaddress.ip_address(start_ip)
+                end = ipaddress.ip_address(end_ip)
+
+                if start.version != end.version:
+                    raise ValueError("Start and End IP must be of the same version")
+
+                if start.version == 6 or end.version == 6:
+                    raise ValueError("IPv6 is not supported")
+
+                if start > end:
+                    raise ValueError("Start IP must be less than or equal to End IP")
+
                 # Check if datacenter exists
                 cursor.execute(
                     "SELECT id FROM datacenters WHERE id = %s", (datacenter_id,)
@@ -93,12 +96,25 @@ class IPRangeManager(BaseManager):
                     (datacenter_id, start_ip, end_ip),
                 )
 
-                conn.commit()
-                new_ip_range = cursor.fetchone()
+                # get ips between start and end
+                ip_list = [
+                    str(ipaddress.IPv4Address(ip))
+                    for ip in range(int(start), int(end) + 1)
+                ]
 
-                return IP_Range(
-                    start_IP=new_ip_range["start_ip"], end_IP=new_ip_range["end_ip"]
-                )
+                # Insert IP list to service_ips table
+                for ip in ip_list:
+                    cursor.execute(
+                        """
+                        INSERT INTO service_ips (ip, dc_id)
+                        VALUES (%s, %s)
+                        """,
+                        (ip, datacenter_id),
+                    )
+
+                conn.commit()
+
+                return IP_Range(start_IP=start_ip, end_IP=end_ip)
         except Exception as e:
             if conn:
                 conn.rollback()
@@ -107,12 +123,12 @@ class IPRangeManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def delete_ip_range(self, ip_range_id):
+    def delete_ip_range_under_dc(self, dc_id: str) -> bool:
         """
-        Delete an IP range.
+        Delete all IP ranges under a specific datacenter.
 
         Args:
-            ip_range_id (str): ID of the IP range to delete
+            dc_id (str): ID of the datacenter
 
         Returns:
             bool: True if deleted successfully, False if not found
@@ -121,9 +137,11 @@ class IPRangeManager(BaseManager):
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                cursor.execute("DELETE FROM ip_ranges WHERE id = %s", (ip_range_id,))
+                cursor.execute("DELETE FROM service_ips WHERE dc_id = %s", (dc_id,))
+                cursor.execute("DELETE FROM ip_ranges WHERE dc_id = %s", (dc_id,))
                 conn.commit()
                 return cursor.rowcount > 0
+
         except Exception as e:
             if conn:
                 conn.rollback()

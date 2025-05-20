@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from DataBaseManage import *
 
-ServiceManager = ServiceManager()
+Service_Manager = ServiceManager()
 SERVICE_BLUEPRINT = Blueprint("service", __name__)
 
 
@@ -12,7 +12,7 @@ def AddService():
         data = request.get_json()
         name = data.get("name")
         racks = data.get("racks", [])
-        ip_list = data.get("ip_list", [])
+        ip_list = data.get("", [])
 
         if not name:
             return jsonify({"error": "Service name is required"}), 400
@@ -32,7 +32,7 @@ def AddService():
                 for rack_id in racks
             ]
 
-        new_service = ServiceManager.createService(
+        new_service = Service_Manager.createService(
             name=name, racks=rack_objects, ip_list=ip_list
         )
 
