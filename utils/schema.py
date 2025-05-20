@@ -4,6 +4,19 @@ from enum import Enum
 
 
 @dataclass
+class Host:
+    name: str
+    height: int
+    ip: str
+    running: bool
+    service_name: str
+    dc_name: str
+    room_name: str
+    rack_name: str
+    pos: int  # 在rack的第幾個位置
+
+
+@dataclass
 class DataCenter:
     name: str
     height: int
@@ -21,7 +34,6 @@ class Room:
     racks: list[SimpleRack]
     n_hosts: int
     dc_name: str
-    room_name: str
 
 
 @dataclass
@@ -30,30 +42,17 @@ class Rack:
     height: int
     capacity: int  # 還剩多少容量
     n_hosts: int
-    hosts: list[SimpleHost]
+    hosts: list[Host]
     service_name: str
     dc_name: str
     room_name: str
-
-
-@dataclass
-class Host:
-    name: str
-    height: int
-    ip: str
-    running: bool
-    service_name: str
-    dc_name: str
-    room_name: str
-    rack_name: str
-    pos: int  # 在rack的第幾個位置
 
 
 @dataclass
 class Service:
     name: str
     allocated_racks: list[SimpleRack]
-    hosts: list[SimpleHost]
+    hosts: list[Host]
     allocated_subnet: str
     total_ip_list: list[str]
     available_ip_list: list[str]
