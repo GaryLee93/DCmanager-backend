@@ -2,7 +2,8 @@ from utils.schema import Host
 from DataBaseManage.connection import BaseManager
 from psycopg2.extras import RealDictCursor
 
-
+# Todo
+# if ip empty, allocate more ip
 class HostManager(BaseManager):
 
     # CREATE operations

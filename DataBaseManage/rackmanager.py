@@ -82,7 +82,7 @@ class RackManager(BaseManager):
 
                 # Get hosts for this rack
                 cursor.execute(
-                    "SELECT * FROM hosts WHERE name = %s",
+                    "SELECT * FROM hosts WHERE rack_name = %s",
                     (rack_name,),
                 )
                 hosts_data = cursor.fetchall()
