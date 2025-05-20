@@ -1,22 +1,24 @@
-from utils.schema import Service, SimpleRack, SimpleService
+from utils.schema import Service, SimpleRack, SimpleService, SimpleHost
 from DataBaseManage.connection import BaseManager
 import psycopg2
 import psycopg2.extras
 
+# TODO
+# 1.Service link user 2.assign ip
 
 class ServiceManager(BaseManager):
     """Class for managing service operations"""
 
     # Service operations
     def createService(
-        self, name: str, dc_name: str, n_racks: int, total_ip: int
+        self, name: str, dc_name: str, n_racks: int, total_ip: int, username: int
     ) -> Service | None:
         """
         Create a new service in the database.
 
         Args:
             name (str): Name of the service
-            dc_id (str): Data center that the service belongs to
+            dc_name (str): Data center that the service belongs to
             n_racks (rack): Number of racks to assign
             total_ip (int): Number of IP addresses to assign
 
@@ -35,16 +37,24 @@ class ServiceManager(BaseManager):
                 )
                 dc_data = cursor.fetchone()
                 if dc_data is None:
-                    raise Exception(f"Datacenter with name {dc_name} does not exist")
-
+                    raise Exception(f"Datacenter named {dc_name} does not exist")
+                
+                # Check if username exists
+                cursor.excute(
+                    "SELECT username Form users WHERE username = %s", (username,)
+                )
+                username = cursor.fetchone()
+                if username is None:
+                    raise Exception(f"User named {username} does not exist")
+                
                 # Insert the new service
                 cursor.execute(
                     """
-                    INSERT INTO services (name, n_racks, n_hosts, total_ip, dc_name)
-                    VALUES (%s, %s, 0, %s, %s, %s)
+                    INSERT INTO services (name, total_ip, dc_name, username)
+                    VALUES (%s, %s, %s, %s)
                     RETURNING name
                     """,
-                    (name, n_racks, total_ip, dc_data["name"]),
+                    (name, total_ip, dc_data["name"], username),
                 )
 
                 # Get the newly created service data
@@ -59,8 +69,8 @@ class ServiceManager(BaseManager):
                 # Find {n_racks} racks that are not assigned to any service
                 cursor.execute(
                     """
-                    SELECT id FROM racks 
-                    WHERE service_id IS NULL
+                    SELECT name FROM racks 
+                    WHERE service_name IS NULL
                     LIMIT %s
                     """,
                     (n_racks,),
@@ -78,38 +88,66 @@ class ServiceManager(BaseManager):
                 # Assign racks to the service
                 assigned_racks = []
                 for rack_data in racks_data:
-                    rack_id = rack_data["id"]
+                    rack_name = rack_data["name"]
 
                     cursor.execute(
                         """
                         UPDATE racks 
-                        SET service_id = %s 
-                        WHERE id = %s
+                        SET service_name = %s 
+                        WHERE name = %s
                         RETURNING *
                         """,
-                        (service_id, rack_id),
+                        (name, rack_name),
                     )
                     updated_rack = cursor.fetchone()
+                     # Get hosts for this rack
+                    cursor.execute(
+                        "SELECT * FROM hosts WHERE rack_name = %s",
+                        (rack_name,),
+                    )
+                    hosts_data = cursor.fetchall()
+                    hosts = [
+                        SimpleHost(
+                            name=host_data["name"],
+                            height=host_data["height"],
+                            ip=host_data["ip"],
+                            running=host_data["running"],
+                            service_name=host_data["service_name"],
+                            dc_name=host_data["dc_name"],
+                            room_name=host_data["room_name"],
+                            rack_name=host_data["rack_name"],
+                            pos=host_data["pos"],
+                        )
+                        for host_data in hosts_data
+                    ]
+                    # Calculate the number of hosts
+                    n_hosts = len(hosts)
+                    # Calculate the capacity
+                    already_used = sum(
+                        host.height for host in hosts
+                    )
+                    # Calculate the remaining capacity
+                    capacity = updated_rack["height"] - already_used
+                    
+
                     if updated_rack:
                         assigned_racks.append(
                             SimpleRack(
-                                id=updated_rack["id"],
                                 name=updated_rack["name"],
                                 height=updated_rack["height"],
-                                capacity=updated_rack["capacity"],
-                                n_hosts=updated_rack["n_hosts"],
-                                service_id=updated_rack["service_id"],
+                                capacity=capacity,
+                                n_hosts=n_hosts,
                                 service_name=new_service["name"],
-                                room_id=updated_rack["room_id"],
+                                room_name=updated_rack["room_name"],
                             )
                         )
 
                 # Get {total_ip} IP addresses in the datacenter
                 cursor.execute(
                     """
-                    SELECT ip FROM service_ips WHERE dc_id = %s AND service_id = NULL LIMIT %s
+                    SELECT ip FROM IPs WHERE dc_name = %s AND service_name = NULL LIMIT %s
                     """,
-                    (dc_data["id"], total_ip),
+                    (dc_data["name"], total_ip),
                 )
                 ip_data = cursor.fetchall()
                 total_ip_list = [ip["ip"] for ip in ip_data]
@@ -123,11 +161,11 @@ class ServiceManager(BaseManager):
                 for ip in total_ip_list:
                     cursor.execute(
                         """
-                        UPDATE service_ips 
-                        SET service_id = %s 
+                        UPDATE IPs 
+                        SET service_name = %s 
                         WHERE ip = %s
                         """,
-                        (service_id, ip),
+                        (name, ip),
                     )
 
                 # Commit all changes
@@ -135,17 +173,12 @@ class ServiceManager(BaseManager):
 
                 # Create and return a Service object
                 return Service(
-                    id=service_id,
                     name=name,
-                    n_racks=n_racks,
-                    racks=assigned_racks,
-                    n_hosts=0,
-                    total_ip=total_ip,
+                    allocated_racks=assigned_racks,
+                    hosts = hosts,
+                    username=username,
                     total_ip_list=total_ip_list,
-                    available_ip=total_ip,
                     available_ip_list=total_ip_list,
-                    dc_id=dc_data["id"],
-                    dc_name=dc_data["name"],
                 )
 
         except Exception as e:
@@ -156,63 +189,96 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def getService(self, service_id: str) -> Service | None:
+    def getService(self, service_name: str) -> Service | None:
         conn = None
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 # Get the specific service
-                cursor.execute("SELECT * FROM services WHERE id = %s", (service_id,))
+                cursor.execute("SELECT * FROM services WHERE name = %s", (service_name,))
                 data = cursor.fetchone()
                 if not data:
                     return None
 
                 # Get racks for this service
                 cursor.execute(
-                    "SELECT * FROM racks WHERE service_id = %s", (service_id,)
+                    "SELECT * FROM racks WHERE service_name = %s", (service_name,)
                 )
                 racks_data = cursor.fetchall()
 
                 # Convert to SimpleRack objects
-                racks = [
-                    SimpleRack(
-                        id=rack_data["id"],
-                        name=rack_data["name"],
-                        height=rack_data["height"],
-                        capacity=rack_data["capacity"],
-                        n_hosts=rack_data["n_hosts"],
-                        service_id=rack_data["service_id"],
-                        service_name=data["name"],
-                        room_id=rack_data["room_id"],
+                racks = []
+                for rack_data in racks_data:
+                    hosts = []
+                    # Get hosts for this rack
+                    cursor.execute(
+                        "SELECT * FROM hosts WHERE rack_name = %s",
+                        (rack_data["name"],),
                     )
-                    for rack_data in racks_data
-                ]
-
+                    hosts_data = cursor.fetchall()
+                    hosts = [
+                        SimpleHost(
+                            name=host_data["name"],
+                            height=host_data["height"],
+                            ip=host_data["ip"],
+                            running=host_data["running"],
+                            service_name=host_data["service_name"],
+                            dc_name=host_data["dc_name"],
+                            room_name=host_data["room_name"],
+                            rack_name=host_data["rack_name"],
+                            pos=host_data["pos"],
+                        )
+                        for host_data in hosts_data
+                    ]
+                    # Calculate the number of hosts
+                    n_hosts = len(hosts)
+                    # Calculate the capacity
+                    already_used = sum(
+                        host.height for host in hosts
+                    )
+                    # Calculate the remaining capacity
+                    capacity = rack_data["height"] - already_used
+                    # Create a SimpleRack object
+                    racks.append(
+                        SimpleRack(
+                            name=rack_data["name"],
+                            height=rack_data["height"],
+                            capacity=capacity,
+                            n_hosts=n_hosts,
+                            service_name=data["name"],
+                            room_name=rack_data["room_name"],
+                        )
+                    )
+                # Calculate the number of racks
+                n_racks = len(racks)
+                # Calculate the number of hosts
+                n_hosts = sum(rack.n_hosts for rack in racks)
+                total_ip_list = []
+                available_ip_list = []
                 # Get IP addresses for this service
                 cursor.execute(
-                    "SELECT ip, assigned FROM service_ips WHERE service_id = %s",
-                    (service_id,),
+                    "SELECT ip FROM IPs WHERE service_name = %s", (service_name,)
                 )
                 ip_data = cursor.fetchall()
-
-                total_ip_list = [ip["ip"] for ip in ip_data]
-                available_ip_list = [
-                    ip["ip"] for ip in ip_data if ip["assigned"] is False
-                ]
-
+                for ip in ip_data:
+                    total_ip_list.append(ip["ip"])
+                cursor.execute(
+                    "SELECT ip FROM IPs WHERE service_name = %s AND assigned = TRUE",
+                    (service_name,),
+                )
+                ip_data = cursor.fetchall()
+                for ip in ip_data:
+                    available_ip_list.append(ip["ip"])
+                
                 # Create and return a Service object
                 return Service(
-                    id=data["id"],
                     name=data["name"],
-                    n_racks=data["n_racks"],
-                    racks=racks,
-                    n_hosts=data["n_hosts"],
-                    total_ip=len(total_ip_list),
+                    hosts=hosts,
+                    username=data["username"],
+                    allocated_racks=racks,
+                    allocated_subnet=data["subnet"],  
                     total_ip_list=total_ip_list,
-                    available_ip=len(available_ip_list),
                     available_ip_list=available_ip_list,
-                    dc_id=data["dc_id"],
-                    dc_name=data["dc_name"],
                 )
 
         except Exception as e:
@@ -234,13 +300,13 @@ class ServiceManager(BaseManager):
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute("SELECT id FROM services")
+                cursor.execute("SELECT name FROM services")
                 services_data = cursor.fetchall()
 
                 service_list = []
                 for data in services_data:
-                    service_id = data["id"]
-                    service = self.getService(service_id)
+                    service_name = data["name"]
+                    service = self.getService(service_name)
                     if service:
                         service_list.append(service)
 
@@ -254,13 +320,13 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def updateService(self, service_id, name=None, racks=None, ip_list=None):
+    def updateService(self, old_name, new_name=None, racks=None, ip_list=None):
         """
         Update an existing service in the database.
 
         Args:
-            service_id (str): ID of the service to update
-            name (str, optional): New name for the service
+            old_name (str): Old name of the service to update
+            new_name (str, optional): New name for the service
             racks (list[SimpleRack], optional): New racks to assign to this service
             ip_list (list[str], optional): New IP addresses to assign to this service
 
@@ -273,7 +339,7 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 # First check if service exists
-                cursor.execute("SELECT * FROM services WHERE id = %s", (service_id,))
+                cursor.execute("SELECT * FROM services WHERE name = %s", (old_name,))
                 service = cursor.fetchone()
                 if not service:
                     return None
@@ -282,45 +348,37 @@ class ServiceManager(BaseManager):
                 update_parts = []
                 params = []
 
-                if name is not None:
+                if new_name is not None:
                     update_parts.append("name = %s")
-                    params.append(name)
+                    params.append(new_name)
 
                 # Handle racks if provided
                 if racks is not None:
                     # First, unassign all racks from this service
                     cursor.execute(
-                        "UPDATE racks SET service_id = NULL WHERE service_id = %s",
-                        (service_id,),
+                        "UPDATE racks SET service_name = NULL WHERE name = %s",
+                        (old_name,),
                     )
 
                     # Then assign provided racks to this service
-                    n_racks = len(racks)
-                    update_parts.append("n_racks = %s")
-                    params.append(n_racks)
-
                     for rack in racks:
                         cursor.execute(
-                            "UPDATE racks SET service_id = %s WHERE id = %s",
-                            (service_id, rack.id),
+                            "UPDATE racks SET service_name = %s WHERE name = %s",
+                            (new_name, rack.name),
                         )
 
                 # Handle IP addresses if provided
                 if ip_list is not None:
                     # First, delete all existing IP addresses for this service
                     cursor.execute(
-                        "DELETE FROM service_ips WHERE service_id = %s", (service_id,)
+                        "DELETE FROM IPs WHERE service_name = %s", (old_name,)
                     )
 
                     # Then add new IP addresses
-                    total_ip = len(ip_list)
-                    update_parts.append("total_ip = %s")
-                    params.append(total_ip)
-
                     for ip in ip_list:
                         cursor.execute(
-                            "INSERT INTO service_ips (service_id, ip) VALUES (%s, %s)",
-                            (service_id, ip),
+                            "INSERT INTO service_ips (service_name, ip) VALUES (%s, %s)",
+                            (new_name, ip),
                         )
 
                 # Update the service if there are changes
@@ -329,8 +387,8 @@ class ServiceManager(BaseManager):
                     update_parts.append("updated_at = CURRENT_TIMESTAMP")
 
                     # Build and execute update query
-                    query = f"UPDATE services SET {', '.join(update_parts)} WHERE id = %s RETURNING *"
-                    params.append(service_id)
+                    query = f"UPDATE services SET {', '.join(update_parts)} WHERE name = %s RETURNING *"
+                    params.append(old_name)
 
                     cursor.execute(query, params)
                     updated_service = cursor.fetchone()
@@ -339,24 +397,54 @@ class ServiceManager(BaseManager):
 
                 # Get updated racks for this service
                 cursor.execute(
-                    "SELECT * FROM racks WHERE service_id = %s", (service_id,)
+                    "SELECT * FROM racks WHERE service_name = %s", (new_name,)
                 )
                 racks_data = cursor.fetchall()
-
-                # Convert to SimpleRack objects
+                # Get capacity and n_hosts for each rack
                 updated_racks = []
                 for rack_data in racks_data:
+                    # Get hosts for this rack
+                    cursor.execute(
+                        "SELECT * FROM hosts WHERE rack_name = %s",
+                        (rack_data["name"],),
+                    )
+                    hosts_data = cursor.fetchall()
+                    hosts = [
+                        SimpleHost(
+                            name=host_data["name"],
+                            height=host_data["height"],
+                            ip=host_data["ip"],
+                            running=host_data["running"],
+                            service_name=host_data["service_name"],
+                            dc_name=host_data["dc_name"],
+                            room_name=host_data["room_name"],
+                            rack_name=host_data["rack_name"],
+                            pos=host_data["pos"],
+                        )
+                        for host_data in hosts_data
+                    ]
+                    # Calculate the number of hosts
+                    n_hosts = len(hosts)
+                    # Calculate the capacity
+                    already_used = sum(
+                        host.height for host in hosts
+                    )
+                    # Calculate the remaining capacity
+                    capacity = rack_data["height"] - already_used
+                    # Create a SimpleRack object
                     rack = SimpleRack(
-                        id=rack_data["id"],
                         name=rack_data["name"],
-                        room_id=rack_data["room_id"],
-                        service_id=rack_data["service_id"],
+                        height=rack_data["height"],
+                        capacity=capacity,
+                        n_hosts=n_hosts,
+                        service_name=updated_service["name"],
+                        room_name=rack_data["room_name"],
                     )
                     updated_racks.append(rack)
 
                 # Get updated IP addresses for this service
                 cursor.execute(
-                    "SELECT ip FROM service_ips WHERE service_id = %s", (service_id,)
+                    "SELECT ip FROM service_ips WHERE service_name = %s", (new_name,)
                 )
                 ip_data = cursor.fetchall()
                 updated_ip_list = [ip["ip"] for ip in ip_data]
@@ -366,13 +454,13 @@ class ServiceManager(BaseManager):
 
                 # Create and return updated Service object
                 return Service(
-                    id=updated_service["id"],
                     name=updated_service["name"],
-                    racks=updated_racks,
-                    n_racks=len(updated_racks),
-                    n_hosts=updated_service["n_hosts"],
-                    total_ip=len(updated_ip_list),
-                    ip_list=updated_ip_list,
+                    allocated_racks=updated_racks,
+                    hosts=hosts,
+                    username=updated_service["username"],
+                    allocated_subnet=updated_service["subnet"],
+                    total_ip_list=updated_ip_list,
+                    available_ip_list=updated_ip_list,
                 )
 
         except Exception as e:
@@ -383,12 +471,12 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def deleteService(self, service_id):
+    def deleteService(self, service_name: str) -> bool:
         """
         Delete a service from the database.
 
         Args:
-            service_id (str): ID of the service to delete
+            service_name (str): Name of the service to delete
 
         Returns:
             bool: True if service was successfully deleted, False if not found
@@ -398,23 +486,23 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # First check if service exists
-                cursor.execute("SELECT id FROM services WHERE id = %s", (service_id,))
+                cursor.execute("SELECT id FROM services WHERE name = %s", (service_name,))
                 if cursor.fetchone() is None:
                     return False
 
                 # Unassign racks from this service (set service_id to NULL)
                 cursor.execute(
-                    "UPDATE racks SET service_id = NULL WHERE service_id = %s",
-                    (service_id,),
+                    "UPDATE racks SET service_name = NULL WHERE service_name = %s",
+                    (service_name,),
                 )
 
                 # Delete IP addresses for this service
                 cursor.execute(
-                    "DELETE FROM service_ips WHERE service_id = %s", (service_id,)
+                    "DELETE FROM service_ips WHERE service_name = %s", (service_name,)
                 )
 
                 # Delete the service
-                cursor.execute("DELETE FROM services WHERE id = %s", (service_id,))
+                cursor.execute("DELETE FROM services WHERE name = %s", (service_name,))
 
                 # Commit all changes
                 conn.commit()
@@ -430,13 +518,13 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def assignRackToService(self, service_id, rack_id):
+    def assignRackToService(self, service_name: str, rack_name: str) -> bool:
         """
         Assign a rack to a service.
 
         Args:
-            service_id (str): ID of the service
-            rack_id (str): ID of the rack to assign
+            service_name (str): Name of the service
+            rack_name (str): Name of the rack to assign
 
         Returns:
             bool: True if assignment was successful, False otherwise
@@ -446,21 +534,40 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Check if service exists
-                cursor.execute("SELECT id FROM services WHERE id = %s", (service_id,))
-                if cursor.fetchone() is None:
+                cursor.execute("SELECT name FROM services WHERE name = %s", (service_name,))
+                result = cursor.fetchone()
+                if result is None:
                     return False
 
                 # Check if rack exists
-                cursor.execute("SELECT id FROM racks WHERE id = %s", (rack_id,))
-                if cursor.fetchone() is None:
+                cursor.execute("SELECT id FROM racks WHERE name = %s", (rack_name,))
+                result = cursor.fetchone()
+                if result is None:
                     return False
 
-                # Assign rack to service
+                rack_name = result[0]
+                # Get the service_name
                 cursor.execute(
-                    "UPDATE racks SET service_id = %s WHERE id = %s",
-                    (service_id, rack_id),
+                    "SELECT name FROM services WHERE name = %s", (service_name,)
                 )
-
+                result = cursor.fetchone()
+                if result is None:
+                    return False
+                service_name = result[0]
+                # Check if the rack is already assigned to a service
+                cursor.execute(
+                    "SELECT service_name FROM racks WHERE name = %s", (rack_name,)
+                )
+                result = cursor.fetchone()
+                if result is not None and result[0] is not None:
+                    # Rack is already assigned to a service
+                    return False
+                # Assign the rack to the service
+                cursor.execute(
+                    "UPDATE racks SET service_name = %s WHERE name = %s",
+                    (service_name, rack_name),
+                )
+                
                 if cursor.rowcount <= 0:
                     return False
 
@@ -477,12 +584,12 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def unassignRackFromService(self, rack_id):
+    def unassignRackFromService(self, rack_name: str) -> bool:
         """
         Unassign a rack from any service.
 
         Args:
-            rack_id (str): ID of the rack to unassign
+            rack_name (str): Name of the rack to unassign
 
         Returns:
             bool: True if unassignment was successful, False otherwise
@@ -492,33 +599,29 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Get the current service_id before unassigning
-                cursor.execute("SELECT service_id FROM racks WHERE id = %s", (rack_id,))
+                cursor.execute("SELECT name FROM racks WHERE name = %s", (rack_name,))
                 result = cursor.fetchone()
                 if result is None:
                     return False
 
-                service_id = result[0]
-                if service_id is None:
+                rack_name = result[0]
+                cursor.execute("SELECT service_name FROM racks WHERE name = %s", (rack_name,))
+                result = cursor.fetchone()
+                if result is None:
+                    return False
+
+                service_name = result[0]
+                if service_name is None:
                     # Rack is not assigned to any service
                     return True
 
                 # Unassign rack
                 cursor.execute(
-                    "UPDATE racks SET service_id = NULL WHERE id = %s", (rack_id,)
+                    "UPDATE racks SET service_name = NULL WHERE name = %s", (rack_name,)
                 )
 
                 if cursor.rowcount <= 0:
                     return False
-
-                # Update service rack count
-                cursor.execute(
-                    """
-                    UPDATE services 
-                    SET n_racks = (SELECT COUNT(*) FROM racks WHERE service_id = %s)
-                    WHERE id = %s
-                    """,
-                    (service_id, service_id),
-                )
 
                 # Commit changes
                 conn.commit()
@@ -629,52 +732,3 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def updateHostCount(self, service_id):
-        """
-        Update the host count for a service based on assigned racks.
-
-        Args:
-            service_id (str): ID of the service
-
-        Returns:
-            int: Updated host count, -1 if service not found
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                # Check if service exists
-                cursor.execute("SELECT id FROM services WHERE id = %s", (service_id,))
-                if cursor.fetchone() is None:
-                    return -1
-
-                # Calculate host count from assigned racks
-                cursor.execute(
-                    """
-                    SELECT COALESCE(SUM(n_hosts), 0) as total_hosts 
-                    FROM racks 
-                    WHERE service_id = %s
-                    """,
-                    (service_id,),
-                )
-
-                total_hosts = cursor.fetchone()[0]
-
-                # Update service host count
-                cursor.execute(
-                    "UPDATE services SET n_hosts = %s WHERE id = %s",
-                    (total_hosts, service_id),
-                )
-
-                # Commit changes
-                conn.commit()
-
-                return total_hosts
-
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)

@@ -4,18 +4,17 @@ from DataBaseManage.connection import BaseManager
 
 
 class RoomManager(BaseManager):
-    # CREATE operations
-    def createRoom(self, name: str, height: int, datacenter_id: str) -> str:
+    def createRoom(self, name: str, height: int, datacenter_name: str) -> str:
         """
         Create a new room in a datacenter.
 
         Args:
             name (str): Name of the room
             height (int): Height capacity for the room
-            datacenter_id (str): ID of the datacenter this room belongs to
+            datacenter_name (str): name of the datacenter this room belongs to
 
         Returns:
-            str: ID of the newly created room
+            str: Name of the newly created room
         """
         conn = None
         try:
@@ -23,32 +22,22 @@ class RoomManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # Check if datacenter exists
                 cursor.execute(
-                    "SELECT id, name FROM datacenters WHERE id = %s", (datacenter_id,)
+                    "SELECT name FROM datacenters WHERE datacenter_name = %s", (datacenter_name,)
                 )
                 dc_data = cursor.fetchone()
                 if dc_data is None:
                     raise Exception(
-                        f"Datacenter with ID {datacenter_id} does not exist"
+                        f"Datacenter named {datacenter_name} does not exist"
                     )
 
                 # Generate a new UUID for the room
-                cursor.execute("SELECT gen_random_uuid()")
-                room_id = cursor.fetchone()["gen_random_uuid"]
-
                 # Insert the new room
                 cursor.execute(
-                    "INSERT INTO rooms (id, name, height, n_racks, n_hosts, dc_id, dc_name) VALUES (%s, %s, %s, 0, 0, %s, %s)",
-                    (room_id, name, height, dc_data["id"], dc_data["name"]),
+                    "INSERT INTO rooms (name, height, dc_name) VALUES (%s, %s, %s)",
+                    (name, height, dc_data["name"]),
                 )
-
-                # Update the room count in the datacenter
-                cursor.execute(
-                    "UPDATE datacenters SET n_rooms = n_rooms + 1 WHERE id = %s",
-                    (datacenter_id,),
-                )
-
                 conn.commit()
-                return room_id
+                return name
 
         except Exception as e:
             if conn:
@@ -59,12 +48,12 @@ class RoomManager(BaseManager):
                 self.release_connection(conn)
 
     # READ operations
-    def getRoom(self, room_id: str) -> Room | None:
+    def getRoom(self, room_name: str) -> Room | None:
         """
-        Get a room by ID.
+        Get a room by name.
 
         Args:
-            room_id (str): ID of the room to retrieve
+            room_name (str): Name of the room to retrieve
 
         Returns:
             Room: Room object if found, None otherwise
@@ -74,8 +63,8 @@ class RoomManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
-                    "SELECT * FROM rooms WHERE id = %s",
-                    (room_id,),
+                    "SELECT * FROM rooms WHERE name = %s",
+                    (room_name,),
                 )
                 room_data = cursor.fetchone()
 
@@ -83,23 +72,18 @@ class RoomManager(BaseManager):
                     return None
 
                 # Get full rack information for this room
-                cursor.execute("SELECT * FROM racks WHERE room_id = %s", (room_id,))
+                cursor.execute("SELECT * FROM racks WHERE room_name = %s", (room_name,))
                 racks_data = cursor.fetchall()
 
+                # calculate the count of hosts and capacity of racks
+                for rack_data in racks_data:
+                    hosts = rack_data.hosts
+                    already_used_capacity = 
+                    n_hosts = 0
+                    hosts_data = cursor.fetchall()
+                    
+
                 # Create SimpleRack objects
-                racks = [
-                    SimpleRack(
-                        id=rack_data["id"],
-                        name=rack_data["name"],
-                        height=rack_data["height"],
-                        capacity=rack_data["capacity"],
-                        n_hosts=rack_data["n_hosts"],
-                        service_id=rack_data["service_id"],
-                        service_name=rack_data["service_name"],
-                        room_id=room_id,
-                    )
-                    for rack_data in racks_data
-                ]
 
                 # Create and return the Room object
                 return Room(
@@ -108,7 +92,7 @@ class RoomManager(BaseManager):
                     height=room_data["height"],
                     n_racks=room_data["n_racks"],
                     racks=racks,
-                    n_hosts=room_data["n_hosts"],
+                    n_hosts=len(hosts_data)
                     dc_id=room_data["dc_id"],
                     dc_name=room_data["dc_name"],
                 )
