@@ -204,8 +204,15 @@ class RackManager(BaseManager):
 
                 if room_id is not None:
                     # TODO: implement logic of moving rack to a new room
-                    pass
-
+                    # check if new room exists
+                    cursor.execute(
+                        "SELECT id FROM rooms WHERE id = %s", (room_id,)
+                    )
+                    if cursor.fetchone() is None:
+                        raise Exception(f"Room with ID {room_id} does not exist")
+                    query_parts.append("room_id = %s")
+                    update_params.append(room_id)
+                    
                 if not query_parts:
                     # Nothing to update
                     return True

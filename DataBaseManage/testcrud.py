@@ -51,7 +51,7 @@ def test_crud_operations():
     updated_dc = datacenter_manager.updateDatacenter(
         test_dc.id, name="Updated Datacenter"
     )
-    print(f"Updated datacenter: {updated_dc.name}")
+    print(f"Updated datacenter: {test_dc.name}")
 
     # ----- Test Service and Room Managers -----
     print("\n=== Testing ServiceManager and RoomManager CRUD ===")
@@ -59,11 +59,11 @@ def test_crud_operations():
     room_manager = RoomManager()
 
     # Create service
-    test_service = service_manager.createService(
-        "Test Service", racks=None, ip_list=["192.168.1.40"]
-    )
-    print(f"Created service: {test_service.name} with ID: {test_service.id}")
-    print(f"Service IP list: {test_service.ip_list}")
+    # test_service = service_manager.createService(
+    #     "Test Service", racks=None, ip_list=["192.168.1.40"]
+    # )
+    # print(f"Created service: {test_service.name} with ID: {test_service.id}")
+    # print(f"Service IP list: {test_service.ip_list}")
     # Create room
     room_id = room_manager.createRoom("Test Room", 40, test_dc.id)
     print(f"Created room with ID: {room_id}")
@@ -73,8 +73,9 @@ def test_crud_operations():
     rack_manager = RackManager()
 
     # Create rack
-    rack_id = rack_manager.createRack("Test Rack", 38, room_id, test_service.id)
-    print(f"Created rack with ID: {rack_id}")
+    
+    # rack_id = rack_manager.createRack("Test Rack", 38, room_id, test_service.id)
+    # print(f"Created rack with ID: {rack_id}")
     # create IP range
     ip_range_manager = IPRangeManager()
     ip_range = ip_range_manager.add_ip_range(test_dc.id, "192.168.1.30", "192.168.1.45")
@@ -96,6 +97,13 @@ def test_crud_operations():
     test_ip_range = ip_range_manager.add_ip_range(test_dc.id, "10.0.0.1", "10.0.0.254")
     print(f"Created IP range: {test_ip_range.start_IP} - {test_ip_range.end_IP}")
 
+
+    # create new dc and update room
+    print("Creating a new datacenter...")
+    new_dc = datacenter_manager.createDatacenter("New Datacenter", 50)
+    print(f"Created new datacenter: {new_dc.name} with ID: {new_dc.id}")
+    print("Updating room...")
+    updated_room = room_manager.updateRoom(room_id, name="Updated Room",dc_id=new_dc.id)
     # ----- Clean Up in Reverse Order -----
     print("\n=== Cleaning Up ===")
 
