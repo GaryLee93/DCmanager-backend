@@ -6,14 +6,14 @@ from psycopg2.extras import RealDictCursor
 class HostManager(BaseManager):
 
     # CREATE operations
-    def createHost(self, name: str, height: str, rack_id: str, pos: str) -> str:
+    def createHost(self, name: str, height: str, rack_name: str, pos: str) -> str:
         """
         Create a new host in a rack.
 
         Args:
             name (str): Name of the host
             height (int): Height of the host in rack units
-            rack_id (str): ID of the rack this host belongs to
+            rack_name (str): Name of the rack this host belongs to
             pos (int): Position in the rack. If None, will use the next available position.
 
         Returns:
@@ -25,13 +25,13 @@ class HostManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # Check if rack exists and get its room_id and datacenter_id
                 cursor.execute(
-                    "SELECT id, name, room_id, room_name, dc_id, dc_name, service_id, service_name FROM racks WHERE id = %s",
-                    (rack_id,),
+                    "SELECT id, name, room_id, room_name, dc_id, dc_name, service_id, service_name FROM racks WHERE name = %s",
+                    (rack_name,),
                 )
                 rack_data = cursor.fetchone()
 
                 if rack_data is None:
-                    raise Exception(f"Rack with ID {rack_id} does not exist")
+                    raise Exception(f"Rack with Name {rack_name} does not exist")
 
                 # Get an available IP of service
                 cursor.execute(
@@ -74,25 +74,6 @@ class HostManager(BaseManager):
                         pos,
                     ),
                 )
-
-                # Update the host count in the rack
-                cursor.execute(
-                    "UPDATE racks SET n_hosts = n_hosts + 1 WHERE id = %s",
-                    (rack_data["id"],),
-                )
-
-                # Update the host count in the room
-                cursor.execute(
-                    "UPDATE rooms SET n_hosts = n_hosts + 1 WHERE id = %s",
-                    (rack_data["room_id"],),
-                )
-
-                # Update the host count in the datacenter
-                cursor.execute(
-                    "UPDATE datacenters SET n_hosts = n_hosts + 1 WHERE id = %s",
-                    (rack_data["dc_id"],),
-                )
-
                 conn.commit()
                 return host_id
 
@@ -236,27 +217,6 @@ class HostManager(BaseManager):
 
                 cursor.execute(query, tuple(update_params))
 
-                # Update counts if rack, room has changed
-                if new_rack_data is not None:
-                    cursor.execute(
-                        "UPDATE racks SET n_hosts = n_hosts - 1 WHERE id = %s",
-                        (current_rack_id,),
-                    )
-                    cursor.execute(
-                        "UPDATE racks SET n_hosts = n_hosts + 1 WHERE id = %s",
-                        (new_rack_data["id"],),
-                    )
-
-                    if new_rack_data["room_id"] != current_room_id:
-                        cursor.execute(
-                            "UPDATE rooms SET n_hosts = n_hosts - 1 WHERE id = %s",
-                            (current_room_id,),
-                        )
-                        cursor.execute(
-                            "UPDATE rooms SET n_hosts = n_hosts + 1 WHERE id = %s",
-                            (new_rack_data["room_id"],),
-                        )
-
                 conn.commit()
 
                 # Check if any rows were affected
@@ -301,23 +261,6 @@ class HostManager(BaseManager):
 
                 # Delete the host
                 cursor.execute("DELETE FROM hosts WHERE id = %s", (host_id,))
-
-                # Update the host count in the rack
-                cursor.execute(
-                    "UPDATE racks SET n_hosts = n_hosts - 1 WHERE id = %s", (rack_id,)
-                )
-
-                # Update the host count in the room
-                cursor.execute(
-                    "UPDATE rooms SET n_hosts = n_hosts - 1 WHERE id = %s", (room_id,)
-                )
-
-                # Update the host count in the datacenter
-                cursor.execute(
-                    "UPDATE datacenters SET n_hosts = n_hosts - 1 WHERE id = %s",
-                    (datacenter_id,),
-                )
-
                 conn.commit()
 
                 # Check if any rows were affected
