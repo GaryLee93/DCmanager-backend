@@ -12,7 +12,6 @@ class DatacenterManager(BaseManager):
         self,
         name: str,
         default_height: int = 42,
-        ip_ranges: list[IP_Range] | None = None,
     ) -> DataCenter | None:
         """
         Create a new datacenter in the database.
@@ -20,7 +19,6 @@ class DatacenterManager(BaseManager):
         Args:
             name (str): Name of the datacenter
             default_height (int, optional): Default rack height for the datacenter. Defaults to 42.
-            ip_ranges (list[IP_Range], optional): IP ranges for the datacenter. Defaults to None.
 
         Returns:
             DataCenter: A DataCenter object representing the newly created datacenter.
@@ -33,9 +31,9 @@ class DatacenterManager(BaseManager):
                 # Insert the new datacenter
                 cursor.execute(
                     """
-                    INSERT INTO datacenters (name, height, n_rooms, n_racks, n_hosts)
-                    VALUES (%s, %s, 0, 0, 0)
-                    RETURNING id, name, height, n_rooms, n_racks, n_hosts
+                    INSERT INTO datacenters (name, height)
+                    VALUES (%s, %s)
+                    RETURNING name, height
                     """,
                     (name, default_height),
                 )
@@ -49,26 +47,14 @@ class DatacenterManager(BaseManager):
                 if not new_datacenter:
                     return None
 
-                # Add IP ranges if provided
-                ip_range_objects = []
-                if ip_ranges and len(ip_ranges) > 0:
-                    ip_range_manager = IPRangeManager()
-                    for ip_range in ip_ranges:
-                        added_range = ip_range_manager.add_ip_range(
-                            new_datacenter["id"], ip_range.start_IP, ip_range.end_IP
-                        )
-                        ip_range_objects.append(added_range)
-
                 # Create and return a DataCenter object
                 return DataCenter(
-                    id=new_datacenter["id"],
                     name=new_datacenter["name"],
                     height=new_datacenter["height"],
-                    n_rooms=new_datacenter["n_rooms"],
+                    n_rooms=0,  # New datacenter has no rooms yet
                     rooms=[],  # New datacenter has no rooms yet
-                    n_racks=new_datacenter["n_racks"],
-                    n_hosts=new_datacenter["n_hosts"],
-                    ip_ranges=ip_range_objects,
+                    n_racks=0,  # New datacenter has no racks yet
+                    n_hosts=0,  # New datacenter has no hosts yet
                 )
 
         except Exception as e:
