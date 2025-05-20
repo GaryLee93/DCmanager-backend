@@ -52,3 +52,5 @@ class SimpleService:
     n_hosts: int
     total_ip: int
     available_ip: int
+    dc_id: str
+    dc_name: str

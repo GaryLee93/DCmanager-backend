@@ -1,13 +1,5 @@
-import os
 from psycopg2.extras import RealDictCursor
-from utils.schema import IP_Range, DataCenter, Room, Rack, Host, Service, User
-from utils.schema import (
-    SimpleRoom,
-    SimpleRack,
-    SimpleHost,
-    SimpleService,
-    SimpleDataCenter,
-)
+from utils.schema import Room, SimpleRack
 from DataBaseManage.connection import BaseManager
 
 

@@ -38,6 +38,9 @@ CREATE TABLE services (
     n_racks INTEGER DEFAULT 0, -- Number of racks assigned to service
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the service
     total_ip INTEGER DEFAULT 0, -- Total IPs allocated to this service
+    available_ip INTEGER DEFAULT 0, -- Available IPs for this service
+    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
+    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

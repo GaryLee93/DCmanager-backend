@@ -78,6 +78,8 @@ class Service:
     total_ip_list: list[str]
     available_ip: int
     available_ip_list: list[str]
+    dc_id: str
+    dc_name: str
 
 
 class UserRole(Enum):
