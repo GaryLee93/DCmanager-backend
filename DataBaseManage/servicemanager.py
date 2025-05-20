@@ -9,7 +9,7 @@ class ServiceManager(BaseManager):
 
     # Service operations
     def createService(
-        self, name: str, dc_id: str, n_racks: int, total_ip: int
+        self, name: str, dc_name: str, n_racks: int, total_ip: int
     ) -> Service | None:
         """
         Create a new service in the database.
@@ -28,22 +28,23 @@ class ServiceManager(BaseManager):
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+
                 # Check if datacenter exists
                 cursor.execute(
-                    "SELECT id, name FROM datacenters WHERE id = %s", (dc_id,)
+                    "SELECT name FROM datacenters WHERE name = %s", (dc_name,)
                 )
                 dc_data = cursor.fetchone()
                 if dc_data is None:
-                    raise Exception(f"Datacenter with ID {dc_id} does not exist")
+                    raise Exception(f"Datacenter with name {dc_name} does not exist")
 
                 # Insert the new service
                 cursor.execute(
                     """
-                    INSERT INTO services (name, n_racks, n_hosts, total_ip, dc_id, dc_name)
+                    INSERT INTO services (name, n_racks, n_hosts, total_ip, dc_name)
                     VALUES (%s, %s, 0, %s, %s, %s)
-                    RETURNING id, name
+                    RETURNING name
                     """,
-                    (name, n_racks, total_ip, dc_data["id"], dc_data["name"]),
+                    (name, n_racks, total_ip, dc_data["name"]),
                 )
 
                 # Get the newly created service data
@@ -155,118 +156,96 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def getService(self, service_id=None) -> Service | list[SimpleService] | None:
+    def getService(self, service_id: str) -> Service | None:
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Get the specific service
+                cursor.execute("SELECT * FROM services WHERE id = %s", (service_id,))
+                data = cursor.fetchone()
+                if not data:
+                    return None
+
+                # Get racks for this service
+                cursor.execute(
+                    "SELECT * FROM racks WHERE service_id = %s", (service_id,)
+                )
+                racks_data = cursor.fetchall()
+
+                # Convert to SimpleRack objects
+                racks = [
+                    SimpleRack(
+                        id=rack_data["id"],
+                        name=rack_data["name"],
+                        height=rack_data["height"],
+                        capacity=rack_data["capacity"],
+                        n_hosts=rack_data["n_hosts"],
+                        service_id=rack_data["service_id"],
+                        service_name=data["name"],
+                        room_id=rack_data["room_id"],
+                    )
+                    for rack_data in racks_data
+                ]
+
+                # Get IP addresses for this service
+                cursor.execute(
+                    "SELECT ip, assigned FROM service_ips WHERE service_id = %s",
+                    (service_id,),
+                )
+                ip_data = cursor.fetchall()
+
+                total_ip_list = [ip["ip"] for ip in ip_data]
+                available_ip_list = [
+                    ip["ip"] for ip in ip_data if ip["assigned"] is False
+                ]
+
+                # Create and return a Service object
+                return Service(
+                    id=data["id"],
+                    name=data["name"],
+                    n_racks=data["n_racks"],
+                    racks=racks,
+                    n_hosts=data["n_hosts"],
+                    total_ip=len(total_ip_list),
+                    total_ip_list=total_ip_list,
+                    available_ip=len(available_ip_list),
+                    available_ip_list=available_ip_list,
+                    dc_id=data["dc_id"],
+                    dc_name=data["dc_name"],
+                )
+
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+
+    def getAllServices(self) -> list[Service]:
         """
-        Get services information.
-        If service_id is provided, returns specific service as Service object,
-        otherwise returns list of Service objects.
-        Returns None if service_id is provided but not found.
+        Get all services from the database.
+
+        Returns:
+            list[Service]: List of all Service objects
         """
         conn = None
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                if service_id:
-                    # Get the specific service
-                    cursor.execute(
-                        "SELECT * FROM services WHERE id = %s", (service_id,)
-                    )
-                    data = cursor.fetchone()
-                    if not data:
-                        return None
+                cursor.execute("SELECT id FROM services")
+                services_data = cursor.fetchall()
 
-                    # Get racks for this service
-                    cursor.execute(
-                        "SELECT * FROM racks WHERE service_id = %s", (service_id,)
-                    )
-                    racks_data = cursor.fetchall()
+                service_list = []
+                for data in services_data:
+                    service_id = data["id"]
+                    service = self.getService(service_id)
+                    if service:
+                        service_list.append(service)
 
-                    # Convert to SimpleRack objects
-                    racks = [
-                        SimpleRack(
-                            id=rack_data["id"],
-                            name=rack_data["name"],
-                            height=rack_data["height"],
-                            capacity=rack_data["capacity"],
-                            n_hosts=rack_data["n_hosts"],
-                            service_id=rack_data["service_id"],
-                            service_name=data["name"],
-                            room_id=rack_data["room_id"],
-                        )
-                        for rack_data in racks_data
-                    ]
+                return service_list
 
-                    # Get IP addresses for this service
-                    cursor.execute(
-                        "SELECT ip, assigned FROM service_ips WHERE service_id = %s",
-                        (service_id,),
-                    )
-                    ip_data = cursor.fetchall()
-
-                    total_ip_list = [ip["ip"] for ip in ip_data]
-                    available_ip_list = [
-                        ip["ip"] for ip in ip_data if ip["assigned"] is False
-                    ]
-
-                    # Create and return a Service object
-                    return Service(
-                        id=data["id"],
-                        name=data["name"],
-                        n_racks=data["n_racks"],
-                        racks=racks,
-                        n_hosts=data["n_hosts"],
-                        total_ip=len(total_ip_list),
-                        total_ip_list=total_ip_list,
-                        available_ip=len(available_ip_list),
-                        available_ip_list=available_ip_list,
-                        dc_id=data["dc_id"],
-                        dc_name=data["dc_name"],
-                    )
-                else:
-                    # Get all services
-                    cursor.execute("SELECT * FROM services ORDER BY name")
-                    services_data = cursor.fetchall()
-
-                    # Create a list to store Service objects
-                    services = []
-
-                    # Get racks for each service
-                    for data in services_data:
-                        cursor.execute(
-                            "SELECT * FROM racks WHERE service_id = %s", (data["id"],)
-                        )
-                        racks_data = cursor.fetchall()
-
-                        # Convert to SimpleRack objects
-                        racks = []
-                        for rack_data in racks_data:
-                            rack = SimpleRack(
-                                id=rack_data["id"],
-                            )
-                            racks.append(rack)
-
-                        # Get IP addresses for this service
-                        cursor.execute(
-                            "SELECT ip FROM service_ips WHERE service_id = %s",
-                            (srv_id,),
-                        )
-                        ip_data = cursor.fetchall()
-                        ip_list = [ip["ip"] for ip in ip_data]
-
-                        # Create Service object and append to list
-                        services.append(
-                            Service(
-                                id=data["id"],
-                                name=data["name"],
-                                racks=racks,
-                                n_racks=data["n_racks"],
-                                n_hosts=data["n_hosts"],
-                                total_ip=data["total_ip"],
-                                ip_list=ip_list,
-                            )
-                        )
-
-                    return services
         except Exception as e:
             if conn:
                 conn.rollback()
@@ -484,16 +463,6 @@ class ServiceManager(BaseManager):
 
                 if cursor.rowcount <= 0:
                     return False
-
-                # Update service rack count
-                cursor.execute(
-                    """
-                    UPDATE services 
-                    SET n_racks = (SELECT COUNT(*) FROM racks WHERE service_id = %s)
-                    WHERE id = %s
-                    """,
-                    (service_id, service_id),
-                )
 
                 # Commit changes
                 conn.commit()

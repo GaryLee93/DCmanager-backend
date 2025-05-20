@@ -39,7 +39,6 @@ CREATE TABLE services (
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the service
     total_ip INTEGER DEFAULT 0, -- Total IPs allocated to this service
     available_ip INTEGER DEFAULT 0, -- Available IPs for this service
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -52,11 +51,8 @@ CREATE TABLE racks (
     height INTEGER NOT NULL, -- Height of the rack
     capacity INTEGER NOT NULL, -- Remaining capacity of the rack
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the rack
-    service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
     service_name VARCHAR(255), -- Name of the service (redundant for faster access)
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
     dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
-    room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
     room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -77,7 +73,8 @@ CREATE TABLE ip_ranges (
 CREATE TABLE service_ips (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     ip INET NOT NULL, -- IP address
-    dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
+    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
+    service_
     service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE, -- Foreign key to services
     assigned BOOLEAN DEFAULT FALSE, -- Whether this IP is assigned to a host
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
