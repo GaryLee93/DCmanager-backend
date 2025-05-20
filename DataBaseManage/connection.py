@@ -1,6 +1,5 @@
 import os
 import psycopg2
-import psycopg2.extras
 from psycopg2.pool import SimpleConnectionPool
 
 # Database connection configuration
@@ -9,7 +8,7 @@ DB_CONFIG = {
     "user": os.environ.get("DB_USER", "postgres"),
     "password": os.environ.get("DB_PASSWORD", "postgres"),
     "host": os.environ.get("DB_HOST", "localhost"),
-    "port": os.environ.get("DB_PORT", "5432"),
+    "port": int(os.environ.get("DB_PORT", "5432")),
 }
 
 # Create a connection pool

@@ -1,28 +1,26 @@
 from flask import Blueprint, request, jsonify
 from DataBaseManage import *
-from utils import schema
 from .Host import DeleteHost
+from dataclasses import asdict
 
 Rack_Manager = RackManager()
 RACK_BLUEPRINT = Blueprint("rack", __name__)
 
 
-# Complete
-@RACK_BLUEPRINT.route("/", methods=["PUT"])
+@RACK_BLUEPRINT.route("/", methods=["POST"])
 def AddNewRack():
     data = request.get_json()
 
     name = str(data.get("name"))
     height = int(data.get("height"))
     room_id = str(data.get("room_id"))
-    dc_id = str(data.get("dc_id"))
 
-    rack_id = Rack_Manager.createRack(name, height, room_id, dc_id)
+    rack_id = Rack_Manager.createRack(name, height, room_id)
 
     return jsonify({"id", rack_id}), 200
 
 
-@RACK_BLUEPRINT.route("/rack/<rack_id>", methods=["GET", "PUT", "DELETE"])
+@RACK_BLUEPRINT.route("/<rack_id>", methods=["GET", "PUT", "DELETE"])
 def ProcessRack(rack_id):
     if request.method == "GET":
         return GetRack(rack_id)
@@ -38,11 +36,13 @@ def GetRack(rack_id):
     if rack == None:
         return "Rack Not Found", 404
     else:
-        return jsonify(rack.toDICT()), 200
+        return jsonify(asdict(rack)), 200
 
 
 # database can't update room_id
 def ModifyRack(rack_id):
+    data = request.get_json()
+
     name = str(data.get("name"))
     height = int(data.get("height"))
     service_id = str(data.get("service_id"))
@@ -56,15 +56,13 @@ def ModifyRack(rack_id):
 
 
 def DeleteRack(rack_id):
-    force = bool(data.get("force"))
     rack = Rack_Manager.getRack(rack_id)
+
     if rack == None:
         return "Rack Not Found", 404
-    if force:
-        for host in rack.hosts:
-            DeleteHost(host.id, force=True)
-        Rack_Manager.deleteRack(rack_id)
-    else:
-        return "you are not super user", 401
+
+    for host in rack.hosts:
+        DeleteHost(host.id)
+    Rack_Manager.deleteRack(rack_id)
 
     return "Rack deleted successfully!", 200

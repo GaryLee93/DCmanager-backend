@@ -1,4 +1,5 @@
 import os
+from psycopg2.extras import RealDictCursor
 from utils.schema import IP_Range, DataCenter, Room, Rack, Host, Service, User
 from utils.schema import (
     SimpleRoom,
@@ -27,7 +28,7 @@ class RoomManager(BaseManager):
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor() as cursor:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # Check if datacenter exists
                 cursor.execute(
                     "SELECT id, name FROM datacenters WHERE id = %s", (datacenter_id,)
@@ -40,7 +41,7 @@ class RoomManager(BaseManager):
 
                 # Generate a new UUID for the room
                 cursor.execute("SELECT gen_random_uuid()")
-                room_id = cursor.fetchone()[0]
+                room_id = cursor.fetchone()["gen_random_uuid"]
 
                 # Insert the new room
                 cursor.execute(
@@ -79,7 +80,7 @@ class RoomManager(BaseManager):
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor() as cursor:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     "SELECT * FROM rooms WHERE id = %s",
                     (room_id,),
@@ -90,24 +91,23 @@ class RoomManager(BaseManager):
                     return None
 
                 # Get full rack information for this room
-                cursor.execute("SELECT * FROM racks WHERE id = %s", (room_id,))
+                cursor.execute("SELECT * FROM racks WHERE room_id = %s", (room_id,))
                 racks_data = cursor.fetchall()
 
                 # Create SimpleRack objects
-                racks = []
-                for rack_data in racks_data:
-                    racks.append(
-                        SimpleRack(
-                            id=rack_data["id"],
-                            name=rack_data["name"],
-                            height=rack_data["height"],
-                            capacity=rack_data["capacity"],
-                            n_hosts=rack_data["n_hosts"],
-                            service_id=rack_data["service_id"],
-                            service_name=rack_data["service_name"],
-                            room_id=room_id,
-                        )
+                racks = [
+                    SimpleRack(
+                        id=rack_data["id"],
+                        name=rack_data["name"],
+                        height=rack_data["height"],
+                        capacity=rack_data["capacity"],
+                        n_hosts=rack_data["n_hosts"],
+                        service_id=rack_data["service_id"],
+                        service_name=rack_data["service_name"],
+                        room_id=room_id,
                     )
+                    for rack_data in racks_data
+                ]
 
                 # Create and return the Room object
                 return Room(
@@ -150,7 +150,7 @@ class RoomManager(BaseManager):
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor() as cursor:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if room exists
                 cursor.execute("SELECT id FROM rooms WHERE id = %s", (room_id,))
                 if cursor.fetchone() is None:
@@ -169,7 +169,7 @@ class RoomManager(BaseManager):
                     update_params.append(height)
 
                 if dc_id is not None:
-                    # implement logic to modify datacenter
+                    # TODO: implement logic of moving room to a new dc
                     pass
 
                 if not query_parts:
@@ -194,7 +194,7 @@ class RoomManager(BaseManager):
                 self.release_connection(conn)
 
     # DELETE operations
-    def deleteRoom(self, room_id):
+    def deleteRoom(self, room_id: str) -> bool:
         """
         Delete a room from the database.
 
@@ -207,19 +207,21 @@ class RoomManager(BaseManager):
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor() as cursor:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if room exists and get its datacenter_id
-                cursor.execute("SELECT id, dc_id FROM rooms WHERE id = %s", (room_id,))
-                room_info = cursor.fetchone()
+                cursor.execute("SELECT dc_id FROM rooms WHERE id = %s", (room_id,))
+                room_data = cursor.fetchone()
 
-                if room_info is None:
+                if room_data is None:
                     return False
 
-                datacenter_id = room_info[1]
+                datacenter_id = room_data["dc_id"]
 
                 # Check if room has any racks (optional: prevent deletion if it has dependencies)
-                cursor.execute("SELECT COUNT(*) FROM racks WHERE id = %s", (room_id,))
-                rack_count = cursor.fetchone()[0]
+                cursor.execute(
+                    "SELECT COUNT(*) FROM racks WHERE room_id = %s", (room_id,)
+                )
+                rack_count = cursor.fetchone()["count"]
 
                 if rack_count > 0:
                     # You may want to raise a custom exception here instead to indicate that the room has dependencies

@@ -26,7 +26,7 @@ CREATE TABLE rooms (
     n_racks INTEGER DEFAULT 0, -- Number of racks in the room
     n_hosts INTEGER DEFAULT 0, -- Number of hosts in the room
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
-    dc_name VARCHAR(255) NOT NULL, -- Name of the datacenter (redundant for faster access)
+    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -52,7 +52,9 @@ CREATE TABLE racks (
     service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
     service_name VARCHAR(255), -- Name of the service (redundant for faster access)
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
+    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
+    room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -86,9 +88,13 @@ CREATE TABLE hosts (
     ip INET, -- IP address of the host
     running BOOLEAN DEFAULT FALSE, -- Whether the host is running
     service_id UUID REFERENCES services(id) ON DELETE SET NULL, -- Foreign key to services
+    service_name VARCHAR(255), -- Name of the service (redundant for faster access)
     dc_id UUID NOT NULL REFERENCES datacenters(id) ON DELETE CASCADE, -- Foreign key to datacenters
+    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
     room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, -- Foreign key to rooms
+    room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
     rack_id UUID NOT NULL REFERENCES racks(id) ON DELETE CASCADE, -- Foreign key to racks
+    rack_name VARCHAR(255) NOT NULL REFERENCES racks(name) ON UPDATE CASCADE, -- Name of the rack (redundant for faster access)
     pos INTEGER NOT NULL, -- Position of the host in the rack
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
