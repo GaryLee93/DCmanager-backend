@@ -10,38 +10,63 @@ HOST_BLUEPRINT = Blueprint("host", __name__)
 
 @HOST_BLUEPRINT.route("/", methods=["POST"])
 def AddHost():
-    """Add a new host to the system"""
+    """
+    Add a new host.
+
+    Params:
+        name, height, rack_name, pos
+
+    Response:
+        Host
+    """
     data = request.get_json()
 
-    # TODO
     name = data.get("name")
     height = data.get("height")
     rack_name = data.get("rack_name")
     pos = data.get("pos")
 
-    if not all([name, height, rack_id, pos, service_id]):
-        return (
-            jsonify(
-                {"error": "Missing required fields (name, height, ip, rack_id, pos)"}
-            ),
-            400,
-        )
-
-    host_id = Host_Manager.createHost(
+    new_host = Host_Manager.createHost(
         name,
         height,
-        rack_id,
+        rack_name,
         pos,
     )
 
-    return jsonify({"id": host_id}), 200
+    return jsonify(asdict(new_host)), 200
+
+
+@HOST_BLUEPRINT.route("/all", methods=["GET"])
+def GetAllHost():
+    """
+    Get all hosts.
+
+    Params:
+        None
+
+    Response:
+        list[Host]
+    """
+
+    host_list = Host_Manager.getAllHosts()
+    ret_list = [asdict(host) for host in host_list if host is not None]
+
+    return jsonify(ret_list), 200
 
 
 @HOST_BLUEPRINT.route("/<host_name>", methods=["GET"])
-def GetHost(hostname):
-    """Get a specific host by ID"""
+def GetHost(host_name):
+    """
+    Get a host.
 
-    host = Host_Manager.getHost(host_id)
+    Params:
+        None
+
+    Response:
+        Host
+    """
+
+    host = Host_Manager.getHost(host_name)
     if not host:
         return "Host not found", 404
 
@@ -50,19 +75,15 @@ def GetHost(hostname):
 
 @HOST_BLUEPRINT.route("/<host_name>", methods=["PUT"])
 def ModifyHost(host_name):
-    """Update a host's information (partial updates supported)"""
-
     data = request.get_json()
 
-    # TODO
-    old_name = str(data.get("old_name"))
     name = data.get("name")
     height = data.get("height")
     running = data.get("running")
     rack_name = data.get("rack_name")
     pos = data.get("pos")
 
-    result = Host_Manager.updateHost(host_id, name, height, running, rack_id)
+    result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     if result == False:
         return "Failed to update host", 404
     else:
@@ -72,7 +93,6 @@ def ModifyHost(host_name):
 @HOST_BLUEPRINT.route("/<host_id>", methods=["DELETE"])
 def DeleteHost(host_id):
     result = Host_Manager.deleteHost(host_id)
-
     if result == False:
         return "Failed to delete host", 404
     else:

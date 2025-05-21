@@ -2,12 +2,13 @@ from utils.schema import Host
 from DataBaseManage.connection import BaseManager
 from psycopg2.extras import RealDictCursor
 
+
 # Todo
 # if ip empty, allocate more ip
 class HostManager(BaseManager):
 
     # CREATE operations
-    def createHost(self, name: str, height: str, rack_name: str, pos: str) -> str:
+    def createHost(self, name: str, height: int, rack_name: str, pos: int) -> Host:
         """
         Create a new host in a rack.
 
@@ -18,19 +19,18 @@ class HostManager(BaseManager):
             pos (int): Position in the rack. If None, will use the next available position.
 
         Returns:
-            str: ID of the newly created host
+            Host: Host object created
         """
         conn = None
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # Check if rack exists and get its room_id and datacenter_id
+                # Check if rack exists
                 cursor.execute(
-                    "SELECT name, height, service_name, dc_name, room_name FROM racks WHERE name = %s",
+                    "SELECT name, service_name, dc_name, room_name FROM racks WHERE name = %s",
                     (rack_name,),
                 )
                 rack_data = cursor.fetchone()
-
                 if rack_data is None:
                     raise Exception(f"Rack with Name {rack_name} does not exist")
 
@@ -40,31 +40,43 @@ class HostManager(BaseManager):
                     (rack_data["service_name"],),
                 )
                 allocated_ip = cursor.fetchone()
-
                 if allocated_ip is not None:
-                    # Update the IP to be assigned and Decrease the available IP count
+                    # Update the IP to be assigned
                     cursor.execute(
                         "UPDATE IPs SET assigned = TRUE WHERE ip = %s",
                         (allocated_ip,),
                     )
 
+                new_host = Host(
+                    name=name,
+                    height=height,
+                    ip=allocated_ip,
+                    running=True,
+                    service_name=rack_data["service_name"],
+                    dc_name=rack_data["dc_name"],
+                    room_name=rack_data["room_name"],
+                    rack_name=rack_data["name"],
+                    pos=pos,
+                )
+
                 # Insert host
                 cursor.execute(
                     "INSERT INTO hosts (name, height, ip, running, service_name, dc_name, room_name, rack_name, pos) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
-                        name,
-                        height,
-                        allocated_ip,
-                        True,
-                        rack_data["service_name"],
-                        rack_data["dc_name"],
-                        rack_data["room_name"],
-                        rack_data["name"],
-                        pos,
+                        new_host.name,
+                        new_host.height,
+                        new_host.ip,
+                        new_host.running,
+                        new_host.service_name,
+                        new_host.dc_name,
+                        new_host.room_name,
+                        new_host.rack_name,
+                        new_host.pos,
                     ),
                 )
                 conn.commit()
-                return name
+
+                return new_host
 
         except Exception as e:
             if conn:
@@ -107,28 +119,54 @@ class HostManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
+    def getAllHosts(self) -> list[Host]:
+        """
+        Get all hosts.
+
+        Args:
+            None
+
+        Returns:
+            list[Host]: List of all Host objects
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT * FROM ORDER BY name")
+                result = cursor.fetchall()
+
+                return result
+
+        except Exception as e:
+            raise e
+        finally:
+            if conn:
+                self.release_connection(conn)
+
     # UPDATE operations
     def updateHost(
         self,
-        old_name: str,
+        host_name: str,
         new_name: str | None = None,
-        height: int | None = None,
-        running: bool | None = None,
-        rack_name=None,
-    ):
+        new_height: int | None = None,
+        new_running: bool | None = None,
+        new_rack_name: str | None = None,
+        new_pos: int | None = None,
+    ) -> bool:
         """
         Update a host's information.
 
         Args:
-            old_name (str): Current name of the host
+            host_name (str): Current name of the host
             new_name (str, optional): New name for the host
-            height (int, optional): New height for the host
-            running (bool, optional): New running status for the host
-            rack_name (str, optional): New rack name for the host.
-                User is not allowed to move the host to rack in different service or datacenter.
+            new_height (int, optional): New height for the host
+            new_running (bool, optional): New running status for the host
+            new_rack_name (str, optional): New rack name for the host. Should be provide with pos.
+            new_pos (int, optional): New position for the host in the rack.
 
         Returns:
-            bool: True if host was successfully updated, False if not found
+            bool
         """
         conn = None
         try:
@@ -136,8 +174,8 @@ class HostManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if host exists and get its current information
                 cursor.execute(
-                    "SELECT name, rack_name, room_name, dc_name, service_name FROM hosts WHERE name = %s",
-                    (old_name,),
+                    "SELECT name, rack_name, room_name FROM hosts WHERE name = %s",
+                    (host_name,),
                 )
                 host_data = cursor.fetchone()
 
@@ -146,28 +184,22 @@ class HostManager(BaseManager):
 
                 current_rack_name = host_data["rack_name"]
                 current_room_name = host_data["room_name"]
-                current_datacenter_name = host_data["dc_name"]
-                current_service_name = host_data["service_name"]
 
-                # Check if rack exists and get its room_id and datacenter_id if changing rack
-                new_rack_data = None
-                if rack_name is not None and rack_name != current_rack_name:
+                # Check if rack to be move to exists
+                new_room_name = None
+                if new_rack_name is not None and new_rack_name != current_rack_name:
                     cursor.execute(
-                        "SELECT name, room_name, room_name, dc_name, service_name FROM racks WHERE name = %s",
-                        (rack_name,),
+                        "SELECT name, room_name FROM racks WHERE name = %s",
+                        (new_rack_name,),
                     )
                     new_rack_data = cursor.fetchone()
 
                     if new_rack_data is None:
-                        raise Exception(f"Rack with name {rack_name} does not exist")
-
-                    if (
-                        new_rack_data["service_name"] != current_service_name
-                        or new_rack_data["dc_name"] != current_datacenter_name
-                    ):
                         raise Exception(
-                            f"Cannot move host to rack in different service or datacenter"
+                            f"Rack with name {new_rack_name} does not exist"
                         )
+
+                    new_room_name = new_rack_data["room_name"]
 
                 # Build the update query based on provided parameters
                 update_params = []
@@ -177,31 +209,30 @@ class HostManager(BaseManager):
                     query_parts.append("name = %s")
                     update_params.append(new_name)
 
-                if height is not None:
+                if new_height is not None:
                     query_parts.append("height = %s")
-                    update_params.append(height)
+                    update_params.append(new_height)
 
-                if running is not None:
+                if new_running is not None:
                     query_parts.append("running = %s")
-                    update_params.append(running)
+                    update_params.append(new_running)
 
-                if new_rack_data is not None:
+                if new_rack_name is not None:
                     query_parts.append("rack_name = %s")
-                    update_params.append(new_rack_data["name"])
+                    update_params.append(new_rack_name)
 
-                    if new_rack_data["room_name"] != current_room_name:
+                    if new_room_name != current_room_name:
                         query_parts.append("room_name = %s")
-                        update_params.append(new_rack_data["room_name"])
+                        update_params.append(new_room_name)
 
                 if not query_parts:
                     # Nothing to update
                     return True
 
                 query = f"UPDATE hosts SET {', '.join(query_parts)} WHERE name = %s"
-                update_params.append(old_name)
+                update_params.append(host_name)
 
                 cursor.execute(query, tuple(update_params))
-
                 conn.commit()
 
                 # Check if any rows were affected
@@ -230,7 +261,7 @@ class HostManager(BaseManager):
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                # First check if host exists and get its rack_id, room_id, and datacenter_id
+                # First check if host exists
                 cursor.execute(
                     "SELECT name, rack_name, room_name, dc_name FROM hosts WHERE name = %s",
                     (host_name,),
@@ -240,9 +271,6 @@ class HostManager(BaseManager):
                 if host_data is None:
                     return False
 
-                rack_name = host_data["rack_name"]
-                room_name = host_data["room_name"]
-                datacenter_name = host_data["dc_name"]
                 # Delete the host
                 cursor.execute("DELETE FROM hosts WHERE name = %s", (host_name,))
                 conn.commit()
