@@ -91,7 +91,7 @@ class Service:
     ]  # how many racks are allocated in each dc
     hosts: list[Host]
     username: int
-    allocated_subnet: str
+    allocated_subnets: list[str]
     total_ip_list: list[str]
     available_ip_list: list[str]
 
