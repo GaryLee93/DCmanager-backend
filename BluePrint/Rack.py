@@ -29,39 +29,38 @@ def AddRack():
 
 
 @RACK_BLUEPRINT.route('/rack/<rack_id>', methods=['GET', 'PUT', 'DELETE'])
-def ProcessRack(rack_id):
+def ProcessRack(rack_name):
     data = request.get_json()
     if request.method == 'GET':
-        return GetRack(rack_id)
+        return GetRack(rack_name)
     elif request.method == 'PUT':
         name = str(data.get('name'))
         height = int(data.get('height'))
-        service_id = str(data.get('service_id'))
-        room_id = str(data.get('room_id'))
-        return ModifyRack(rack_id, name, height, service_id, room_id)
+        room_name = str(data.get('room_name'))
+        return ModifyRack(rack_name, name, height, room_name)
     elif request.method == 'DELETE':
-        return DeleteRack(rack_id)
+        return DeleteRack(rack_name)
     
-def GetRack(rack_id):
-    rack = Rack_Manager.getRack(rack_id)
+def GetRack(rack_name):
+    rack = Rack_Manager.getRack(rack_name)
     if rack == None:
         return Response(status = 404)
     else:
-        return jsonify(rack.toDICT()), 200
+        return jsonify(asdict(rack)), 200
 
 # database can't update room_id
-def ModifyRack(rack_id, name, height, service_id, room_id):
-    if Rack_Manager.getRack(rack_id) == None:
+def ModifyRack(rack_name, name, height, room_name):
+    if Rack_Manager.getRack(rack_name) == None:
         return Response(status = 404)
     else:
-        Rack_Manager.updateRack(rack_id, name, height, service_id, room_id)
+        Rack_Manager.updateRack(rack_name, name, height, room_name)
         return Response(status = 200)
 
-def DeleteRack(rack_id):
-    rack = Rack_Manager.getRack(rack_id)
+def DeleteRack(rack_name):
+    rack = Rack_Manager.getRack(rack_name)
     if rack == None:
         return Response(status = 404)
     for host in rack.hosts:
-        DeleteHost(host.id)
-    Rack_Manager.deleteRack(rack_id)
+        DeleteHost(host.name)
+    Rack_Manager.deleteRack(rack_name)
     return Response(status = 200)
