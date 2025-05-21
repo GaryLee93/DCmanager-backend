@@ -52,7 +52,7 @@ class Rack:
 class Service:
     name: str
     allocated_racks: list[SimpleRack]
-    hosts: list[SimpleHost]
+    hosts: list[Host]
     username: int
     allocated_subnet: str
     total_ip_list: list[str]

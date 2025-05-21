@@ -1,10 +1,11 @@
-from utils.schema import Service, SimpleRack, SimpleService, SimpleHost
+from utils.schema import Service, SimpleRack, SimpleService, Host
 from DataBaseManage.connection import BaseManager
 import psycopg2
 import psycopg2.extras
 
 # TODO
 # 1.Service link user 2.assign ip
+
 
 class ServiceManager(BaseManager):
     """Class for managing service operations"""
@@ -38,7 +39,7 @@ class ServiceManager(BaseManager):
                 dc_data = cursor.fetchone()
                 if dc_data is None:
                     raise Exception(f"Datacenter named {dc_name} does not exist")
-                
+
                 # Check if username exists
                 cursor.excute(
                     "SELECT username Form users WHERE username = %s", (username,)
@@ -46,7 +47,7 @@ class ServiceManager(BaseManager):
                 username = cursor.fetchone()
                 if username is None:
                     raise Exception(f"User named {username} does not exist")
-                
+
                 # Insert the new service
                 cursor.execute(
                     """
@@ -87,6 +88,7 @@ class ServiceManager(BaseManager):
 
                 # Assign racks to the service
                 assigned_racks = []
+                total_hosts = []
                 for rack_data in racks_data:
                     rack_name = rack_data["name"]
 
@@ -100,14 +102,14 @@ class ServiceManager(BaseManager):
                         (name, rack_name),
                     )
                     updated_rack = cursor.fetchone()
-                     # Get hosts for this rack
+                    # Get hosts for this rack
                     cursor.execute(
                         "SELECT * FROM hosts WHERE rack_name = %s",
                         (rack_name,),
                     )
                     hosts_data = cursor.fetchall()
                     hosts = [
-                        SimpleHost(
+                        Host(
                             name=host_data["name"],
                             height=host_data["height"],
                             ip=host_data["ip"],
@@ -120,15 +122,13 @@ class ServiceManager(BaseManager):
                         )
                         for host_data in hosts_data
                     ]
+                    total_hosts += hosts
                     # Calculate the number of hosts
                     n_hosts = len(hosts)
                     # Calculate the capacity
-                    already_used = sum(
-                        host.height for host in hosts
-                    )
+                    already_used = sum(host.height for host in hosts)
                     # Calculate the remaining capacity
                     capacity = updated_rack["height"] - already_used
-                    
 
                     if updated_rack:
                         assigned_racks.append(
@@ -175,8 +175,9 @@ class ServiceManager(BaseManager):
                 return Service(
                     name=name,
                     allocated_racks=assigned_racks,
-                    hosts = hosts,
+                    hosts=total_hosts,
                     username=username,
+                    allocated_subnet=,
                     total_ip_list=total_ip_list,
                     available_ip_list=total_ip_list,
                 )
@@ -195,7 +196,9 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 # Get the specific service
-                cursor.execute("SELECT * FROM services WHERE name = %s", (service_name,))
+                cursor.execute(
+                    "SELECT * FROM services WHERE name = %s", (service_name,)
+                )
                 data = cursor.fetchone()
                 if not data:
                     return None
@@ -217,7 +220,7 @@ class ServiceManager(BaseManager):
                     )
                     hosts_data = cursor.fetchall()
                     hosts = [
-                        SimpleHost(
+                        Host(
                             name=host_data["name"],
                             height=host_data["height"],
                             ip=host_data["ip"],
@@ -233,9 +236,7 @@ class ServiceManager(BaseManager):
                     # Calculate the number of hosts
                     n_hosts = len(hosts)
                     # Calculate the capacity
-                    already_used = sum(
-                        host.height for host in hosts
-                    )
+                    already_used = sum(host.height for host in hosts)
                     # Calculate the remaining capacity
                     capacity = rack_data["height"] - already_used
                     # Create a SimpleRack object
@@ -267,14 +268,14 @@ class ServiceManager(BaseManager):
                 ip_data = cursor.fetchall()
                 for ip in ip_data:
                     available_ip_list.append(ip["ip"])
-                
+
                 # Create and return a Service object
                 return Service(
                     name=data["name"],
                     hosts=hosts,
                     username=data["username"],
                     allocated_racks=racks,
-                    allocated_subnet=data["subnet"],  
+                    allocated_subnet=data["subnet"],
                     total_ip_list=total_ip_list,
                     available_ip_list=available_ip_list,
                 )
@@ -408,7 +409,7 @@ class ServiceManager(BaseManager):
                     )
                     hosts_data = cursor.fetchall()
                     hosts = [
-                        SimpleHost(
+                        Host(
                             name=host_data["name"],
                             height=host_data["height"],
                             ip=host_data["ip"],
@@ -424,9 +425,7 @@ class ServiceManager(BaseManager):
                     # Calculate the number of hosts
                     n_hosts = len(hosts)
                     # Calculate the capacity
-                    already_used = sum(
-                        host.height for host in hosts
-                    )
+                    already_used = sum(host.height for host in hosts)
                     # Calculate the remaining capacity
                     capacity = rack_data["height"] - already_used
                     # Create a SimpleRack object
@@ -484,7 +483,9 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # First check if service exists
-                cursor.execute("SELECT id FROM services WHERE name = %s", (service_name,))
+                cursor.execute(
+                    "SELECT id FROM services WHERE name = %s", (service_name,)
+                )
                 if cursor.fetchone() is None:
                     return False
 
@@ -532,7 +533,9 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Check if service exists
-                cursor.execute("SELECT name FROM services WHERE name = %s", (service_name,))
+                cursor.execute(
+                    "SELECT name FROM services WHERE name = %s", (service_name,)
+                )
                 result = cursor.fetchone()
                 if result is None:
                     return False
@@ -565,7 +568,7 @@ class ServiceManager(BaseManager):
                     "UPDATE racks SET service_name = %s WHERE name = %s",
                     (service_name, rack_name),
                 )
-                
+
                 if cursor.rowcount <= 0:
                     return False
 
@@ -603,7 +606,9 @@ class ServiceManager(BaseManager):
                     return False
 
                 rack_name = result[0]
-                cursor.execute("SELECT service_name FROM racks WHERE name = %s", (rack_name,))
+                cursor.execute(
+                    "SELECT service_name FROM racks WHERE name = %s", (rack_name,)
+                )
                 result = cursor.fetchone()
                 if result is None:
                     return False
@@ -650,7 +655,9 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Check if service exists
-                cursor.execute("SELECT name FROM services WHERE name = %s", (service_name,))
+                cursor.execute(
+                    "SELECT name FROM services WHERE name = %s", (service_name,)
+                )
                 if cursor.fetchone() is None:
                     return False
 
@@ -727,4 +734,3 @@ class ServiceManager(BaseManager):
         finally:
             if conn:
                 self.release_connection(conn)
-
