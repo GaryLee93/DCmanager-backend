@@ -38,16 +38,6 @@ def AddHost():
 
 @HOST_BLUEPRINT.route("/all", methods=["GET"])
 def GetAllHost():
-    """
-    Get all hosts.
-
-    Params:
-        None
-
-    Response:
-        list[Host]
-    """
-
     host_list = Host_Manager.getAllHosts()
     ret_list = [asdict(host) for host in host_list if host is not None]
 
@@ -56,16 +46,6 @@ def GetAllHost():
 
 @HOST_BLUEPRINT.route("/<host_name>", methods=["GET"])
 def GetHost(host_name):
-    """
-    Get a host.
-
-    Params:
-        None
-
-    Response:
-        Host
-    """
-
     host = Host_Manager.getHost(host_name)
     if not host:
         return "Host not found", 404
@@ -75,6 +55,13 @@ def GetHost(host_name):
 
 @HOST_BLUEPRINT.route("/<host_name>", methods=["PUT"])
 def ModifyHost(host_name):
+    """
+    Add a new host.
+
+    Params:
+        name, height, running, rack_name, pos
+    """
+
     data = request.get_json()
 
     name = data.get("name")
@@ -85,7 +72,7 @@ def ModifyHost(host_name):
 
     result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     if result == False:
-        return "Failed to update host", 404
+        return "Failed to update host", 500
     else:
         return "Host modified successfully!", 200
 
@@ -94,6 +81,6 @@ def ModifyHost(host_name):
 def DeleteHost(host_id):
     result = Host_Manager.deleteHost(host_id)
     if result == False:
-        return "Failed to delete host", 404
+        return "Failed to delete host", 500
     else:
         return "Host deleted successfully!", 200

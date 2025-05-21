@@ -4,7 +4,7 @@ from DataBaseManage.connection import BaseManager
 
 
 class RoomManager(BaseManager):
-    def createRoom(self, name: str, height: int, datacenter_name: str) -> str:
+    def createRoom(self, name: str, height: int, datacenter_name: str) -> Room:
         """
         Create a new room in a datacenter.
 
@@ -14,7 +14,7 @@ class RoomManager(BaseManager):
             datacenter_name (str): name of the datacenter this room belongs to
 
         Returns:
-            str: Name of the newly created room
+            Room: Room object if created successfully, None otherwise
         """
         conn = None
         try:
@@ -22,7 +22,8 @@ class RoomManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # Check if datacenter exists
                 cursor.execute(
-                    "SELECT name FROM datacenters WHERE datacenter_name = %s", (datacenter_name,)
+                    "SELECT name FROM datacenters WHERE datacenter_name = %s",
+                    (datacenter_name,),
                 )
                 dc_data = cursor.fetchone()
                 if dc_data is None:
@@ -30,14 +31,23 @@ class RoomManager(BaseManager):
                         f"Datacenter named {datacenter_name} does not exist"
                     )
 
-                # Generate a new UUID for the room
+                new_room = Room(
+                    name=name,
+                    height=height,
+                    n_racks=0,
+                    racks=[],
+                    n_hosts=0,
+                    dc_name=dc_data["name"],
+                )
+
                 # Insert the new room
                 cursor.execute(
                     "INSERT INTO rooms (name, height, dc_name) VALUES (%s, %s, %s)",
-                    (name, height, dc_data["name"]),
+                    (new_room.name, new_room.height, new_room.dc_name),
                 )
                 conn.commit()
-                return name
+
+                return new_room
 
         except Exception as e:
             if conn:
@@ -111,7 +121,6 @@ class RoomManager(BaseManager):
                     racks=racks,
                     n_hosts=n_hosts,
                     dc_name=room_data["dc_name"],
-                    room_name=room_data["name"],
                 )
 
         except Exception as e:
@@ -152,7 +161,6 @@ class RoomManager(BaseManager):
                 # Build the update query based on provided parameters
                 update_params = []
                 query_parts = []
-
 
                 if height is not None:
                     query_parts.append("height = %s")
@@ -210,7 +218,9 @@ class RoomManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if room exists and get its datacenter_id
-                cursor.execute("SELECT dc_name FROM rooms WHERE name = %s", (room_name,))
+                cursor.execute(
+                    "SELECT dc_name FROM rooms WHERE name = %s", (room_name,)
+                )
                 room_data = cursor.fetchone()
 
                 if room_data is None:

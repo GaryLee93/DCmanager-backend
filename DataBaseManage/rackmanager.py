@@ -7,7 +7,7 @@ from DataBaseManage.connection import BaseManager
 class RackManager(BaseManager):
 
     # CREATE operations
-    def createRack(self, name: str, height: int, room_name: str) -> str:
+    def createRack(self, name: str, height: int, room_name: str) -> Rack:
         """
         Create a new rack in a room.
 
@@ -33,20 +33,31 @@ class RackManager(BaseManager):
                 if room_data is None:
                     raise Exception(f"Room with name {room_name} does not exist")
 
+                new_rack = Rack(
+                    name=name,
+                    height=height,
+                    capacity=height,
+                    n_hosts=0,
+                    hosts=[],
+                    service_name="",
+                    dc_name=room_data["dc_name"],
+                    room_name=room_data["name"],
+                )
+
                 # Insert the new rack
                 cursor.execute(
                     "INSERT INTO racks (name, height, service_name, dc_name, room_name) VALUES (%s, %s, %s, %s, %s)",
                     (
-                        name,
-                        height,
-                        "",  # service_name is not provided, so set it to an empty string
-                        room_data["dc_name"],
-                        room_data["name"],
+                        new_rack.name,
+                        new_rack.height,
+                        new_rack.service_name,
+                        new_rack.dc_name,
+                        new_rack.room_name,
                     ),
                 )
 
                 conn.commit()
-                return name
+                return new_rack
 
         except Exception as e:
             if conn:

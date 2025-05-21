@@ -12,16 +12,16 @@ class ServiceManager(BaseManager):
 
     # Service operations
     def createService(
-        self, name: str, dc_name: str, n_racks: int, total_ip: int, username: int
+        self, name: str, n_allocated_racks: dict[str, int], allocated_subnet: str, username: int
     ) -> Service | None:
         """
         Create a new service in the database.
 
         Args:
             name (str): Name of the service
-            dc_name (str): Data center that the service belongs to
-            n_racks (rack): Number of racks to assign
-            total_ip (int): Number of IP addresses to assign
+            n_allocated_racks (dict[str, int]): Number of racks to allocate in each data center
+            allocated_subnet (str): Subnet allocated to the service
+            username (int): ID of the user creating the service
 
         Returns:
             Service: A Service object representing the newly created service.
@@ -319,15 +319,16 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def updateService(self, old_name, new_name=None, racks=None, ip_list=None):
+    def updateService(self, service_name: str, new_name: str | None = None, new_n_allocated_racks: dict[str, int] | None = None, new_allocated_subnet: str | None = None) -> Service | None:
         """
         Update an existing service in the database.
 
         Args:
-            old_name (str): Old name of the service to update
-            new_name (str, optional): New name for the service
-            racks (list[SimpleRack], optional): New racks to assign to this service
-            ip_list (list[str], optional): New IP addresses to assign to this service
+            service_name (str): Name of the service to update
+            new_name (str | None): New name for the service
+            new_n_allocated_racks (dict[str, int] | None): New number of racks to allocate in each data center, the number means the amount to be extented
+                e.g. {"DC1": 2, "DC2": 3} means to add 2 racks in DC1 and 3 racks in DC2
+            new_allocated_subnet (str | None): New subnet allocated to the service
 
         Returns:
             Service: Updated Service object

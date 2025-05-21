@@ -1,6 +1,5 @@
 from psycopg2.extras import RealDictCursor
-from utils.schema import DataCenter, SimpleDataCenter, SimpleRoom, IP_Range
-from DataBaseManage import IPRangeManager
+from utils.schema import DataCenter, SimpleDataCenter, SimpleRoom
 from DataBaseManage.connection import BaseManager
 
 
@@ -51,6 +50,7 @@ class DatacenterManager(BaseManager):
                 return DataCenter(
                     name=new_datacenter["name"],
                     height=new_datacenter["height"],
+                    rooms=[],
                     n_rooms=0,  # New datacenter has no rooms yet
                     n_racks=0,  # New datacenter has no racks yet
                     n_hosts=0,  # New datacenter has no hosts yet
@@ -81,11 +81,13 @@ class DatacenterManager(BaseManager):
                     return None
 
                 # Get rooms for this datacenter
-                cursor.execute("SELECT * FROM rooms WHERE dc_name = %s", (datacenter_name,))
+                cursor.execute(
+                    "SELECT * FROM rooms WHERE dc_name = %s", (datacenter_name,)
+                )
                 rooms_data = cursor.fetchall()
 
                 # Convert to SimpleRoom objects
-                rooms = [ ]
+                rooms = []
                 all_racks_num = 0
                 all_hosts_num = 0
                 for room_data in rooms_data:
@@ -157,17 +159,20 @@ class DatacenterManager(BaseManager):
                     )
                     # Count the number of rooms
                     cursor.execute(
-                        "SELECT COUNT(*) FROM rooms WHERE dc_name = %s", (datacenter_name,)
+                        "SELECT COUNT(*) FROM rooms WHERE dc_name = %s",
+                        (datacenter_name,),
                     )
                     n_rooms = cursor.fetchone()["count"]
                     # Count the number of racks
                     cursor.execute(
-                        "SELECT COUNT(*) FROM racks WHERE dc_name = %s", (datacenter_name,)
+                        "SELECT COUNT(*) FROM racks WHERE dc_name = %s",
+                        (datacenter_name,),
                     )
                     n_racks = cursor.fetchone()["count"]
                     # Count the number of hosts
                     cursor.execute(
-                        "SELECT COUNT(*) FROM hosts WHERE dc_name = %s", (datacenter_name,)
+                        "SELECT COUNT(*) FROM hosts WHERE dc_name = %s",
+                        (datacenter_name,),
                     )
                     n_hosts = cursor.fetchone()["count"]
                     # Create DataCenter object and append to list
@@ -213,9 +218,7 @@ class DatacenterManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if datacenter exists
-                cursor.execute(
-                    "SELECT * FROM datacenters WHERE name = %s", (old_name,)
-                )
+                cursor.execute("SELECT * FROM datacenters WHERE name = %s", (old_name,))
                 if cursor.fetchone() is None:
                     return False
 
