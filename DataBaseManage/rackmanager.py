@@ -1,6 +1,6 @@
 import os
 from psycopg2.extras import RealDictCursor
-from utils.schema import Rack, SimpleHost
+from utils.schema import Rack, Host
 from DataBaseManage.connection import BaseManager
 
 
@@ -87,9 +87,8 @@ class RackManager(BaseManager):
                 )
                 hosts_data = cursor.fetchall()
 
-                # Convert to SimpleHost objects
                 hosts = [
-                    SimpleHost(
+                    Host(
                         name=host_data["name"],
                         height=host_data["height"],
                         ip=host_data["ip"],
@@ -105,9 +104,7 @@ class RackManager(BaseManager):
                 # Calculate the number of hosts
                 n_hosts = len(hosts)
                 # Calculate the capacity
-                already_used = sum(
-                    host.height for host in hosts
-                )
+                already_used = sum(host.height for host in hosts)
                 # Calculate the remaining capacity
                 capacity = result["height"] - already_used
                 # Check if the rack is full
@@ -117,9 +114,7 @@ class RackManager(BaseManager):
                     )
                 # Check if the rack is empty
                 if n_hosts == 0:
-                    raise Exception(
-                        f"Rack {rack_name} is empty. No hosts found."
-                    )
+                    raise Exception(f"Rack {rack_name} is empty. No hosts found.")
 
                 # Create and return the Rack object
                 return Rack(

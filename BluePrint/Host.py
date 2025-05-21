@@ -37,8 +37,8 @@ def AddHost():
     return jsonify({"id": host_id}), 200
 
 
-@HOST_BLUEPRINT.route("/<host_id>", methods=["GET"])
-def GetHost(host_id):
+@HOST_BLUEPRINT.route("/<host_name>", methods=["GET"])
+def GetHost(hostname):
     """Get a specific host by ID"""
 
     host = Host_Manager.getHost(host_id)
@@ -48,8 +48,8 @@ def GetHost(host_id):
     return jsonify(asdict(host)), 200
 
 
-@HOST_BLUEPRINT.route("/<host_id>", methods=["PUT"])
-def ModifyHost(host_id):
+@HOST_BLUEPRINT.route("/<host_name>", methods=["PUT"])
+def ModifyHost(host_name):
     """Update a host's information (partial updates supported)"""
 
     data = request.get_json()

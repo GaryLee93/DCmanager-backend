@@ -30,19 +30,6 @@ class SimpleRack:
 
 
 @dataclass
-class SimpleHost:
-    name: str
-    height: int
-    ip: str
-    running: bool
-    service_name: str
-    dc_name: str
-    room_name: str
-    rack_name: str
-    pos: int  # 在rack的第幾個位置
-
-
-@dataclass
 class SimpleService:
     name: str
     n_allocated_racks: int
