@@ -1,5 +1,4 @@
-from DataBaseManage.connection import test_connection
-from DataBaseManage.iprangemanager import IPRangeManager
+from DataBaseManage.connection import test_connection   
 from DataBaseManage.datacentermanager import DatacenterManager
 from DataBaseManage.roommanager import RoomManager
 from DataBaseManage.rackmanager import RackManager
@@ -10,7 +9,6 @@ from DataBaseManage.usermanager import UserManager
 # For easier imports
 __all__ = [
     'test_connection',
-    'IPRangeManager',
     'DatacenterManager',
     'RoomManager',
     'RackManager',

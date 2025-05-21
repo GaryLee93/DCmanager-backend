@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from dataclasses import asdict
-from Room import DeleteRoom
+from .Room import DeleteRoom
 
 
 DC_manager = DatacenterManager()

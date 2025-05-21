@@ -29,7 +29,7 @@ class ServiceManager(BaseManager):
             raise Exception(f"Error generating IP list: {e}")
         
     def createService(
-        self, name: str, n_allocated_racks: dict[str, int], allocated_subnets: str[list], username: str
+        self, name: str, n_allocated_racks: dict[str, int], allocated_subnets: list[str], username: str
     ) -> Service | None:
         """
         Create a new service in the database.
