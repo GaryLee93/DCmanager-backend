@@ -10,12 +10,9 @@ ROOM_BLUEPRINT = Blueprint("room", __name__)
 @ROOM_BLUEPRINT.route("/", methods=["POST"])
 def AddNewRoom():
     data = request.get_json()
-
-    # TODO
-    name = str(data.get("name"))
-    height = int(data.get("height"))
-    dc_name = str(data.get("dc_name"))
-
+    name = str(data.get('name'))
+    height = int(data.get('height'))
+    dc_id = str(data.get('dc_id'))
     room_id = Room_Manager.createRoom(name, height, dc_id)
 
     return jsonify({"id": room_id}), 200
@@ -23,14 +20,17 @@ def AddNewRoom():
 
 @ROOM_BLUEPRINT.route("/<room_id>", methods=["GET", "PUT", "DELETE"])
 def ProcessRoom(room_id):
-    if request.method == "GET":
+    data = request.get_json()
+    if request.method == 'GET':
         return GetRoom(room_id)
-    elif request.method == "PUT":
-        return ModifyRoom(room_id)
-    elif request.method == "DELETE":
-        return DeleteRoom(room_id)
-    return "Method Not Allowed", 405
-
+    elif request.method == 'PUT':
+        name = str(data.get('name'))
+        height = int(data.get('height'))
+        dc_id = str(data.get('dc_id'))
+        return ModifyRoom(room_id, name, height, dc_id)
+    elif request.method == 'DELETE':
+        force = bool(data.get("force"))
+        return DeleteRoom(room_id, force)
 
 def GetRoom(room_id):
     room = Room_Manager.getRoom(room_id)
@@ -40,15 +40,7 @@ def GetRoom(room_id):
         return jsonify(asdict(room)), 200
 
 
-def ModifyRoom(room_id):
-    data = request.get_json()
-
-    # TODO
-    old_name = str(data.get("old_name"))
-    name = str(data.get("name"))
-    height = int(data.get("height"))
-    dc_name = str(data.get("dc_name"))
-
+def ModifyRoom(room_id, name, height, dc_id):
     if Room_Manager.getRoom(room_id) == None:
         return "Room Not Found", 404
 
@@ -56,8 +48,7 @@ def ModifyRoom(room_id):
 
     return "modify room", 200
 
-
-def DeleteRoom(room_id):
+def DeleteRoom(room_id, force):
     room = Room_Manager.getRoom(room_id)
 
     if room == None:

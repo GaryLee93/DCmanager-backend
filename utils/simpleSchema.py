@@ -34,6 +34,7 @@ class SimpleService:
     name: str
     n_allocated_racks: int
     n_hosts: int
+    username: int
     allocated_subnet: str
     total_ip_list: list[str]
     available_ip_list: list[str]
