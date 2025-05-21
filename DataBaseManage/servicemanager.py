@@ -430,7 +430,6 @@ class ServiceManager(BaseManager):
         service_name: str, 
         new_name: str | None = None, 
         new_n_allocated_racks: dict[str, int] | None = None, 
-        new_allocated_subnets: list[str] | None = None
     ) -> Service | None:
         """
         Update an existing service in the database.
@@ -440,7 +439,6 @@ class ServiceManager(BaseManager):
             new_name (str | None): New name for the service
             new_n_allocated_racks (dict[str, int] | None): New number of racks to allocate in each data center
                 e.g. {"DC1": 2, "DC2": 3} means to add 2 racks in DC1 and 3 racks in DC2
-            new_allocated_subnets (list[str] | None): New subnet allocated to the service
 
         Returns:
             Service: Updated Service object
@@ -466,52 +464,6 @@ class ServiceManager(BaseManager):
                     update_parts.append("name = %s")
                     params.append(new_name)
 
-                if new_allocated_subnets is not None:
-                    # Generate IP list from new subnet
-                    for new_allocated_subnet in new_allocated_subnets:
-                        # Check if subnet is valid
-                        try:
-                            ipaddress.ip_network(new_allocated_subnet, strict=True)
-                        except ValueError:
-                            raise Exception(f"Invalid subnet: {new_allocated_subnet}")
-                        # Check if subnet already exists in the database
-                        cursor.execute(
-                            "SELECT * FROM subnets WHERE subnet = %s", (new_allocated_subnet,)
-                        )
-                        existing_subnet = cursor.fetchone()
-                        if existing_subnet:
-                            raise Exception(f"Subnet {new_allocated_subnet} already exists in the database")
-                        new_ip_list = self.subnet_to_iplist(new_allocated_subnet)
-                        # Find existing IPs in the database
-                        cursor.execute(
-                            "SELECT * FROM IPs WHERE ip = ANY(%s)", (new_ip_list,)
-                        )
-                        existing_ips = cursor.fetchall()
-                        if existing_ips:
-                            raise Exception(
-                                f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
-                            )
-                        # Insert the new subnet into the subnets table
-                        cursor.execute(
-                            """
-                            INSERT INTO subnets (subnet, service_name)
-                            VALUES (%s, %s)
-                            ON CONFLICT (subnet) DO NOTHING
-                            RETURNING subnet
-                            """,
-                            (new_allocated_subnet, update_name),
-                        )
-                        for ip in new_ip_list:
-                            cursor.execute(
-                                """
-                                INSERT INTO IPs (ip, service_name, assigned, dc_name)
-                                VALUES (%s, %s, FALSE, %s)
-                                ON CONFLICT (ip) DO UPDATE
-                                SET service_name = EXCLUDED.service_name, assigned = FALSE
-                                """,
-                                (ip, update_name, list(new_n_allocated_racks.keys())[0])  # Assign to first DC for simplicity
-                            )
-                            params.append(ip)
                 # Update the service record if there are changes
                 if update_parts:
                     # Add updated_at to be updated
