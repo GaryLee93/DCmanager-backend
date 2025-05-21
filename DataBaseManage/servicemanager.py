@@ -2,11 +2,32 @@ from utils.schema import Service, SimpleRack, SimpleService, Host
 from DataBaseManage.connection import BaseManager
 import psycopg2
 import psycopg2.extras
+import ipaddress
 
 class ServiceManager(BaseManager):
     """Class for managing service operations"""
+    def subnet_to_iplist(self, subnet: str) -> list[str]:
+        """
+        Convert a subnet to a list of IP addresses.
 
-    # Service operations
+        Args:
+            subnet (str): Subnet in CIDR notation 
+                e.g. 168.0.0/24
+
+        Returns:
+            list[str]: List of IP addresses in the subnet
+        """
+        try:
+            # Create an IP network object
+            network = ipaddress.ip_network(subnet, strict=False)
+            # Generate a list of all IP addresses in the subnet
+            ip_list = [str(ip) for ip in network.hosts()]
+            return ip_list
+        except ValueError as e:
+            raise Exception(f"Invalid subnet: {e}")
+        except Exception as e:
+            raise Exception(f"Error generating IP list: {e}")
+        
     def createService(
         self, name: str, n_allocated_racks: dict[str, int], allocated_subnet: str, username: str
     ) -> Service | None:
@@ -34,7 +55,24 @@ class ServiceManager(BaseManager):
                 user_data = cursor.fetchone()
                 if user_data is None:
                     raise Exception(f"User {username} does not exist")
+                    
+                # Generate IP list from subnet
+                ip_list = self.subnet_to_iplist(allocated_subnet)
 
+                # Find existing IPs in the database
+                cursor.execute(
+                    "SELECT * FROM IPs WHERE ip = ANY(%s)", (ip_list,)
+                )
+                existing_ips = cursor.fetchall()
+                if existing_ips:
+                    raise Exception(
+                        f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
+                    )
+                else:
+                    total_ips_list = ip_list
+                    available_ip_list = ip_list
+
+                
                 # Insert the new service
                 cursor.execute(
                     """
@@ -55,7 +93,6 @@ class ServiceManager(BaseManager):
                 # Process allocated racks for each datacenter
                 all_assigned_racks = {}
                 all_hosts = []
-                all_ip_addresses = []
 
                 for dc_name, n_racks in n_allocated_racks.items():
                     # Check if datacenter exists
@@ -142,29 +179,17 @@ class ServiceManager(BaseManager):
                     # Store the racks for this datacenter
                     all_assigned_racks[dc_name] = assigned_racks
 
-                    # Get available IP addresses in this datacenter for the subnet
+                # Create all IPs from the subnet in the IP table
+                for ip in ip_list:
                     cursor.execute(
                         """
-                        SELECT ip FROM IPs 
-                        WHERE dc_name = %s AND service_name IS NULL
-                        LIMIT %s
+                        INSERT INTO IPs (ip, service_name, assigned, dc_name)
+                        VALUES (%s, %s, FALSE, %s)
+                        ON CONFLICT (ip) DO UPDATE
+                        SET service_name = EXCLUDED.service_name, assigned = FALSE
                         """,
-                        (dc_name, n_racks * 10),  # Allocate some IPs per rack as an example
+                        (ip, name, list(n_allocated_racks.keys())[0])  # Assign to first DC for simplicity
                     )
-                    ip_data = cursor.fetchall()
-                    dc_ips = [ip["ip"] for ip in ip_data]
-                    all_ip_addresses.extend(dc_ips)
-
-                    # Assign service name to the IP addresses
-                    for ip in dc_ips:
-                        cursor.execute(
-                            """
-                            UPDATE IPs 
-                            SET service_name = %s 
-                            WHERE ip = %s
-                            """,
-                            (name, ip),
-                        )
 
                 # Commit all changes
                 conn.commit()
@@ -176,8 +201,8 @@ class ServiceManager(BaseManager):
                     hosts=all_hosts,
                     username=username,
                     allocated_subnet=allocated_subnet,
-                    total_ip_list=all_ip_addresses,
-                    available_ip_list=all_ip_addresses.copy(),
+                    total_ip_list=ip_list,
+                    available_ip_list=ip_list.copy(),
                 )
 
         except Exception as e:
@@ -409,6 +434,49 @@ class ServiceManager(BaseManager):
                 if new_allocated_subnet is not None:
                     update_parts.append("subnet = %s")
                     params.append(new_allocated_subnet)
+                    # Generate IP list from new subnet
+                    new_ip_list = self.subnet_to_iplist(new_allocated_subnet)
+                    # Check for existing IPs in the database
+                    cursor.execute(
+                        "SELECT * FROM IPs WHERE ip = ANY(%s)", (new_ip_list,)
+                    )
+                    existing_ips = cursor.fetchall()
+                    if existing_ips:
+                        raise Exception(
+                            f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
+                        )
+                    else:
+                        # Update IPs for this service
+                        cursor.execute(
+                            """
+                            UPDATE IPs 
+                            SET service_name = %s, assigned = FALSE 
+                            WHERE service_name = %s
+                            """,
+                            (update_name, service_name)
+                        )
+                        # Insert new IPs for the new subnet
+                        for ip in new_ip_list:
+                            cursor.execute(
+                                """
+                                INSERT INTO IPs (ip, service_name, assigned, dc_name)
+                                VALUES (%s, %s, FALSE, %s)
+                                ON CONFLICT (ip) DO UPDATE
+                                SET service_name = EXCLUDED.service_name, assigned = FALSE
+                                """,
+                                (ip, update_name, list(new_n_allocated_racks.keys())[0])  # Assign to first DC for simplicity
+                            )
+                        # Delete old IPs for the old subnet
+                        cursor.execute(
+                            """
+                            DELETE FROM IPs 
+                            WHERE service_name = %s AND subnet = %s
+                            """,
+                            (service_name, service["subnet"])
+                        )
+                        # Update the IP list
+                        total_ip_list = new_ip_list
+                        available_ip_list = new_ip_list.copy()
 
                 # Update the service record if there are changes
                 if update_parts:
@@ -522,12 +590,17 @@ class ServiceManager(BaseManager):
                     "UPDATE racks SET service_name = NULL WHERE service_name = %s",
                     (service_name,)
                 )
-
-                # Release IP addresses from this service
+                # find subnet of this service
                 cursor.execute(
-                    "UPDATE IPs SET service_name = NULL, assigned = FALSE WHERE service_name = %s",
-                    (service_name,)
+                    "SELECT subnet FROM services WHERE name = %s", (service_name,)
                 )
+                subnet = cursor.fetchone()
+                # delete IP addresses from this subnet
+                if subnet:
+                    cursor.execute(
+                        "DELETE FROM IPs WHERE subnet = %s",
+                        (subnet["subnet"])
+                    )
 
                 # Delete the service
                 cursor.execute("DELETE FROM services WHERE name = %s", (service_name,))
@@ -658,182 +731,3 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def addIPToService(self, service_name: str, ip_address: str) -> bool:
-        """
-        Add an IP address to a service.
-
-        Args:
-            service_name (str): Name of the service
-            ip_address (str): IP address to add
-
-        Returns:
-            bool: True if addition was successful, False otherwise
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                # Check if service exists
-                cursor.execute(
-                    "SELECT name FROM services WHERE name = %s", (service_name,)
-                )
-                if cursor.fetchone() is None:
-                    return False
-
-                # Check if IP already exists and is assigned to another service
-                cursor.execute(
-                    "SELECT service_name FROM IPs WHERE ip = %s", (ip_address,)
-                )
-                result = cursor.fetchone()
-                if result is not None and result[0] is not None and result[0] != service_name:
-                    return False
-
-                # Add or update IP address
-                cursor.execute(
-                    """
-                    INSERT INTO IPs (service_name, ip, assigned)
-                    VALUES (%s, %s, FALSE)
-                    ON CONFLICT (ip) DO UPDATE
-                    SET service_name = EXCLUDED.service_name
-                    """,
-                    (service_name, ip_address)
-                )
-
-                # Commit changes
-                conn.commit()
-
-                return True
-
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-
-    def removeIPFromService(self, service_name: str, ip_address: str) -> bool:
-        """
-        Remove an IP address from a service.
-
-        Args:
-            service_name (str): Name of the service
-            ip_address (str): IP address to remove
-
-        Returns:
-            bool: True if removal was successful, False otherwise
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                # Check if the IP belongs to the service
-                cursor.execute(
-                    "SELECT service_name FROM IPs WHERE ip = %s AND service_name = %s",
-                    (ip_address, service_name)
-                )
-                if cursor.fetchone() is None:
-                    return False
-
-                # Check if the IP is assigned to a host
-                cursor.execute(
-                    "SELECT name FROM hosts WHERE ip = %s", (ip_address,)
-                )
-                if cursor.fetchone() is not None:
-                    # If IP is assigned to a host, just unassign it from the service
-                    cursor.execute(
-                        "UPDATE IPs SET assigned = FALSE WHERE ip = %s",
-                        (ip_address,)
-                    )
-                else:
-                    # If IP is not assigned to a host, release it completely
-                    cursor.execute(
-                        "UPDATE IPs SET service_name = NULL, assigned = FALSE WHERE ip = %s",
-                        (ip_address,)
-                    )
-
-                if cursor.rowcount <= 0:
-                    return False
-
-                # Commit changes
-                conn.commit()
-
-                return True
-
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
-
-    def assignIPToHost(self, ip_address: str, host_name: str) -> bool:
-        """
-        Assign an IP address to a host.
-
-        Args:
-            ip_address (str): IP address to assign
-            host_name (str): Name of the host
-
-        Returns:
-            bool: True if assignment was successful, False otherwise
-        """
-        conn = None
-        try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                # Check if host exists
-                cursor.execute(
-                    "SELECT service_name FROM hosts WHERE name = %s", (host_name,)
-                )
-                host_data = cursor.fetchone()
-                if host_data is None:
-                    return False
-                
-                service_name = host_data[0]
-                
-                # Check if IP is available and belongs to the same service
-                cursor.execute(
-                    """
-                    SELECT service_name, assigned 
-                    FROM IPs 
-                    WHERE ip = %s
-                    """,
-                    (ip_address,)
-                )
-                ip_data = cursor.fetchone()
-                
-                if ip_data is None:
-                    return False
-                
-                if ip_data[0] != service_name:
-                    return False
-                
-                if ip_data[1]:  # IP is already assigned to another host
-                    return False
-                
-                # Assign the IP to the host
-                cursor.execute(
-                    "UPDATE hosts SET ip = %s WHERE name = %s",
-                    (ip_address, host_name)
-                )
-                
-                # Mark the IP as assigned
-                cursor.execute(
-                    "UPDATE IPs SET assigned = TRUE WHERE ip = %s",
-                    (ip_address,)
-                )
-
-                # Commit changes
-                conn.commit()
-
-                return True
-
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            raise e
-        finally:
-            if conn:
-                self.release_connection(conn)
