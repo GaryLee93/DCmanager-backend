@@ -53,19 +53,20 @@ def ProcessRoom(service_name):
     elif request.method == "PUT":
         data = request.get_json()
         name = str(data.get("name"))
-        n_allocated_racks = int(data.get("n_allocated_racks"))
+        n_allocated_racks = data.get("n_allocated_racks")
         allocated_subnet = str(data.get("allocated_subnet"))
 
-        result = Service_Manager.updateService(room_name, name, height, dc_name)
+        result = Service_Manager.updateService(
+            service_name, name, n_allocated_racks, allocated_subnet
+        )
         if result == False:
-            return "Failed to update room", 500
-        return "Room modified successfully!", 200
+            return "Failed to update service", 500
+        return "Service modified successfully!", 200
 
     elif request.method == "DELETE":
-        result = Room_Manager.deleteRoom(room_name)
+        result = Service_Manager.deleteService(service_name)
         if result == False:
-            return "Failed to delete room", 500
-        return "Room deleted successfully!", 200
+            return "Failed to delete service", 500
+        return "Service deleted successfully!", 200
 
     return "Method Not Allowed", 405
-@
