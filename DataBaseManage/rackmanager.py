@@ -235,7 +235,7 @@ class RackManager(BaseManager):
 
                 # Check if rack has any hosts (optional: prevent deletion if it has dependencies)
                 cursor.execute(
-                    "SELECT COUNT(*) FROM hosts WHERE rack_id = %s", (rack_name,)
+                    "SELECT COUNT(*) FROM hosts WHERE rack_name = %s", (rack_name,)
                 )
                 host_count = cursor.fetchone()["count"]
 

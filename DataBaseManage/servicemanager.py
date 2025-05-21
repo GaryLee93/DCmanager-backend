@@ -249,8 +249,6 @@ class ServiceManager(BaseManager):
                             room_name=rack_data["room_name"],
                         )
                     )
-                # Calculate the number of racks
-                n_racks = len(racks)
                 # Calculate the number of hosts
                 n_hosts = sum(rack.n_hosts for rack in racks)
                 total_ip_list = []
@@ -377,7 +375,7 @@ class ServiceManager(BaseManager):
                     # Then add new IP addresses
                     for ip in ip_list:
                         cursor.execute(
-                            "INSERT INTO service_ips (service_name, ip) VALUES (%s, %s)",
+                            "INSERT INTO IPs (service_name, ip) VALUES (%s, %s)",
                             (new_name, ip),
                         )
 
@@ -444,7 +442,7 @@ class ServiceManager(BaseManager):
 
                 # Get updated IP addresses for this service
                 cursor.execute(
-                    "SELECT ip FROM service_ips WHERE service_name = %s", (new_name,)
+                    "SELECT ip FROM IPs WHERE service_name = %s", (new_name,)
                 )
                 ip_data = cursor.fetchall()
                 updated_ip_list = [ip["ip"] for ip in ip_data]
@@ -498,7 +496,7 @@ class ServiceManager(BaseManager):
 
                 # Delete IP addresses for this service
                 cursor.execute(
-                    "DELETE FROM service_ips WHERE service_name = %s", (service_name,)
+                    "DELETE FROM IPs WHERE service_name = %s", (service_name,)
                 )
 
                 # Delete the service
@@ -540,7 +538,7 @@ class ServiceManager(BaseManager):
                     return False
 
                 # Check if rack exists
-                cursor.execute("SELECT id FROM racks WHERE name = %s", (rack_name,))
+                cursor.execute("SELECT name FROM racks WHERE name = %s", (rack_name,))
                 result = cursor.fetchone()
                 if result is None:
                     return False
@@ -636,12 +634,12 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def addIPToService(self, service_id, ip_address):
+    def addIPToService(self, service_name, ip_address):
         """
         Add an IP address to a service.
 
         Args:
-            service_id (str): ID of the service
+            service_name (str): Name of the service
             ip_address (str): IP address to add
 
         Returns:
@@ -652,24 +650,23 @@ class ServiceManager(BaseManager):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 # Check if service exists
-                cursor.execute("SELECT id FROM services WHERE id = %s", (service_id,))
+                cursor.execute("SELECT name FROM services WHERE name = %s", (service_name,))
                 if cursor.fetchone() is None:
                     return False
 
                 # Add IP address
                 cursor.execute(
-                    "INSERT INTO service_ips (service_id, ip) VALUES (%s, %s)",
-                    (service_id, ip_address),
+                    "INSERT INTO IPs (service_name, ip) VALUES (%s, %s)",
+                    (service_name, ip_address),
                 )
 
                 # Update service IP count
                 cursor.execute(
                     """
                     UPDATE services 
-                    SET total_ip = (SELECT COUNT(*) FROM service_ips WHERE service_id = %s)
-                    WHERE id = %s
+                    SET total_ip = (SELECT COUNT(*) FROM service_ips WHERE service_name = %s)
                     """,
-                    (service_id, service_id),
+                    (service_name),
                 )
 
                 # Commit changes
@@ -685,12 +682,12 @@ class ServiceManager(BaseManager):
             if conn:
                 self.release_connection(conn)
 
-    def removeIPFromService(self, service_id, ip_address):
+    def removeIPFromService(self, service_name, ip_address):
         """
         Remove an IP address from a service.
 
         Args:
-            service_id (str): ID of the service
+            service_name (str): Name of the service
             ip_address (str): IP address to remove
 
         Returns:
@@ -702,8 +699,8 @@ class ServiceManager(BaseManager):
             with conn.cursor() as cursor:
                 # Delete IP address
                 cursor.execute(
-                    "DELETE FROM service_ips WHERE service_id = %s AND ip = %s",
-                    (service_id, ip_address),
+                    "DELETE FROM IPs WHERE service_name = %s AND ip = %s",
+                    (service_name, ip_address),
                 )
 
                 if cursor.rowcount <= 0:
@@ -713,10 +710,9 @@ class ServiceManager(BaseManager):
                 cursor.execute(
                     """
                     UPDATE services 
-                    SET total_ip = (SELECT COUNT(*) FROM service_ips WHERE service_id = %s)
-                    WHERE id = %s
+                    SET total_ip = (SELECT COUNT(*) FROM IPs WHERE service_name = %s)
                     """,
-                    (service_id, service_id),
+                    (service_name),
                 )
 
                 # Commit changes
