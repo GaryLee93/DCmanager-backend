@@ -11,11 +11,14 @@ DATA_CENTER_BLUEPRINT = Blueprint("dc", __name__)
 @DATA_CENTER_BLUEPRINT.route("/", methods=["POST"])
 def AddNewDC():
     data = request.get_json()
-
-    # TODO
     name = str(data.get("name"))
     height = int(data.get("height"))
 
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+    name = str(data.get('name'))
+    height = int(data.get('height'))
+    id = DC_manager.createDatacenter(name, height)
     return jsonify({"id": str(id)}), 200
 
 
@@ -30,46 +33,42 @@ def GetAllDC():
 
 @DATA_CENTER_BLUEPRINT.route("/<dc_id>", methods=["GET", "PUT", "DELETE"])
 def ProcessDC(dc_id):
-    if request.method == "GET":
+    data = request.get_json()
+    if request.method == 'GET':
         return GetDC(dc_id)
-    elif request.method == "PUT":
-        return ModifyDC(dc_id)
-    elif request.method == "DELETE":
-        return DeleteDC(dc_id)
-    return "Method Not Allowed", 405
-
+    elif request.method == 'PUT':
+        name = str(data.get('name'))
+        height = int(data.get('height'))
+        return ModifyDC(dc_id, name, height)
+    elif request.method == 'DELETE':
+        force = bool(data.get("force"))
+        if force == None:
+            return 
+        return DeleteDC(dc_id, force)
+    return jsonify({"error": "Invalid Method"}), 400
 
 def GetDC(dc_id):
     dataCenter = DC_manager.getDatacenter(dc_id)
     if dataCenter == None:
-        return "Data Center Not Found", 404
+        return jsonify({"error": "Data Center Not Found"}), 404
     else:
         return jsonify(asdict(dataCenter)), 200
 
 
-def ModifyDC(dc_id):
-    data = request.get_json()
 
-    # TODO
-    old_name = str(data.get("old_name"))
-    name = str(data.get("name"))
-    height = int(data.get("height"))
+def ModifyDC(dc_id, name, height):
+    if(DC_manager.getDatacenter(dc_id) == None):
+        return jsonify({"error":"Data Center Not Found"}), 404
+    DC_manager.updateDatacenter(dc_id, name, height)
+    return 200
 
-    if DC_manager.getDatacenter(dc_id) == None:
-        return "Data Center Not Found", 404
-
-    return "Modify Data Center", 200
-
-
-def DeleteDC(dc_id):
+def DeleteDC(dc_id, force):
     datacenter = DC_manager.getDatacenter(dc_id)
-
-    if datacenter == None:
-        return "Data Center Not Found", 404
-
-    # delete all objects in the datacenter
-    for room in datacenter.rooms:
-        DeleteRoom(room)
-    DC_manager.deleteDatacenter(dc_id)
-
-    return "Delete Data Center", 200
+        return jsonify({"error":"Data Center Not Found"}), 404
+    if force:
+        for room in datacenter.rooms:
+            DeleteRoom(room.id, force=True)
+        DC_manager.deleteDatacenter(dc_id)
+    else:
+        return jsonify({"error":"you are not superuser"}), 401
+    return 200
