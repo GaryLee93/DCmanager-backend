@@ -1,19 +1,30 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from utils import schema
-from .Rack import DeleteRack
+from dataclasses import asdict
 
 Room_Manager = RoomManager()
-ROOM_BLUEPRINT = Blueprint('room', __name__)
+ROOM_BLUEPRINT = Blueprint("room", __name__)
 
-@ROOM_BLUEPRINT.route('/', methods=['POST'])
-def AddNewRoom():
+
+@ROOM_BLUEPRINT.route("/", methods=["POST"])
+def AddRoom():
+    """
+    Add a new room.
+
+    Params:
+        name, height, dc_name
+
+    Response:
+        Room
+    """
     data = request.get_json()
-    name = str(data.get('name'))
-    height = int(data.get('height'))
-    dc_id = str(data.get('dc_id'))
-    room_id = Room_Manager.createRoom(name, height, dc_id)
-    return jsonify({"id": room_id}), 200
+    name = str(data.get("name"))
+    height = int(data.get("height"))
+    dc_name = str(data.get("dc_name"))
+    room = Room_Manager.createRoom(name, height, dc_name)
+
+    return jsonify(asdict(room)), 200
+
 
 @ROOM_BLUEPRINT.route('/<room_id>', methods=['GET', 'PUT', 'DELETE'])
 def ProcessRoom(room_id):
@@ -52,3 +63,4 @@ def DeleteRoom(room_id):
     Room_Manager.deleteRoom(room_id)
     return Response(status = 200)
 
+    return "Method Not Allowed", 405

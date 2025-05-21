@@ -1,29 +1,37 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from utils import schema
-from .Room import DeleteRoom
+from dataclasses import asdict
 
 DC_manager = DatacenterManager()
 
-DATA_CENTER_BLUEPRINT = Blueprint('dc', __name__)
+DATA_CENTER_BLUEPRINT = Blueprint("dc", __name__)
 
-@DATA_CENTER_BLUEPRINT.route('/', methods=['POST'])
+
+@DATA_CENTER_BLUEPRINT.route("/", methods=["POST"])
 def AddNewDC():
+    """
+    Add a new datacenter.
+
+    Params:
+        name, height
+
+    Response:
+        Datacenter ID
+    """
     data = request.get_json()
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
-    name = str(data.get('name'))
-    height = int(data.get('height'))
+    name = str(data.get("name"))
+    height = int(data.get("height"))
     id = DC_manager.createDatacenter(name, height)
     return Response(status = 200)
 
 @DATA_CENTER_BLUEPRINT.route('/all', methods=['GET'])
 def GetAllDC():
-    dataCenters = DC_manager.getAllDatacenters()
-    dataCenterList = []
-    for dataCenter in dataCenters:
-        dataCenterList.append(dataCenter.toDICT())
-    return jsonify(dataCenterList), 200 
+    dc_list = DC_manager.getAllDatacenters()
+    ret_list = [asdict(dc) for dc in dc_list if dc is not None]
+    return jsonify(ret_list), 200
+
 
 @DATA_CENTER_BLUEPRINT.route('/<dc_id>', methods = ['GET', 'PUT', 'DELETE'])
 def ProcessDC(dc_id):

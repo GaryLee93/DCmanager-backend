@@ -1,21 +1,32 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from utils import schema
 from .Host import DeleteHost
+from dataclasses import asdict
 
 Rack_Manager = RackManager()
-RACK_BLUEPRINT = Blueprint('rack', __name__)
+RACK_BLUEPRINT = Blueprint("rack", __name__)
 
-#Complete
-@RACK_BLUEPRINT.route('/', methods=['PUT'])
-def AddNewRack():
+
+@RACK_BLUEPRINT.route("/", methods=["POST"])
+def AddRack():
+    """
+    Add a new host.
+
+    Params:
+        name, height, room_name
+
+    Response:
+        Rack
+    """
     data = request.get_json()
-    name = str(data.get('name'))
-    height = int(data.get('height'))
-    room_id = str(data.get('room_id'))
-    dc_id = str(data.get('dc_id'))
-    rack_id = Rack_Manager.createRack(name, height, room_id, dc_id)
-    return jsonify({"id", rack_id}), 200
+    name = str(data.get("name"))
+    height = int(data.get("height"))
+    room_name = str(data.get("room_name"))
+
+    rack = Rack_Manager.createRack(name, height, room_name)
+
+    return jsonify(asdict(rack)), 200
+
 
 @RACK_BLUEPRINT.route('/rack/<rack_id>', methods=['GET', 'PUT', 'DELETE'])
 def ProcessRack(rack_id):

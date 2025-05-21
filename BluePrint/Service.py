@@ -1,172 +1,72 @@
 from flask import Blueprint, request, jsonify
 from DataBaseManage import *
-from utils import schema
+from dataclasses import asdict
 
-ServiceManager = ServiceManager()
-SERVICE_BLUEPRINT = Blueprint('service', __name__)
+Service_Manager = ServiceManager()
+SERVICE_BLUEPRINT = Blueprint("service", __name__)
 
-@SERVICE_BLUEPRINT.route('/', methods=['POST'])
+
+@SERVICE_BLUEPRINT.route("/", methods=["POST"])
 def AddService():
-    """Add a new service"""
-    try:
-        data = request.get_json()
-        name = data.get('name')
-        racks = data.get('racks', [])
-        ip_list = data.get('ip_list', []) 
+    """
+    Add a new service.
 
-        if not name:
-            return jsonify({"error": "Service name is required"}), 400
+    Params:
+        name, n_allocated_racks, allocated_subnet, username
 
-        rack_objects = []
-        if racks:
-            rack_objects = [schema.SimpleRack(id=rack_id, name="", height=0, capacity=0, n_hosts=0, service_id="", room_id="") 
-                          for rack_id in racks]
+    Response:
+        Datacenter ID
+    """
+    data = request.get_json()
 
-        new_service = ServiceManager.createService(
-            name=name,
-            racks=rack_objects,
-            ip_list=ip_list
-        )
+    name = data.get("name")
+    n_allocated_racks = data.get("n_allocated_racks")
+    allocated_subnet = data.get("allocated_subnet")
+    username = data.get("username")
 
-        if not new_service:
-            return jsonify({"error": "Failed to create service"}), 500
+    new_service = Service_Manager.createService(
+        name, n_allocated_racks, allocated_subnet, username
+    )
 
-        return jsonify({
-            'service_id': new_service.id
-        }), 200
+    if not new_service:
+        return jsonify({"error": "Failed to create service"}), 500
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify(asdict(new_service)), 200
 
-@SERVICE_BLUEPRINT.route('/all', methods=['GET'])
+
+@SERVICE_BLUEPRINT.route("/all", methods=["GET"])
 def GetAllService():
-    """Get all services"""
-    try:
-        services = ServiceManager.getService()
-        if services is None:
-            return jsonify([]), 200
+    service_list = Service_Manager.getAllServices()
+    ret_list = [asdict(service) for service in service_list if service is not None]
+    return jsonify(ret_list), 200
 
-        serialized = []
-        for service in services:
-            service_dict = vars(service)
-            service_dict['racks'] = [vars(rack) for rack in service.racks]
-            serialized.append(service_dict)
 
-        return jsonify(serialized), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@SERVICE_BLUEPRINT.route("/<service_name>", methods=["GET", "PUT", "DELETE"])
+def ProcessRoom(service_name):
 
-@SERVICE_BLUEPRINT.route('/<service_id>', methods=['GET'])
-def GetService(service_id):
-    """Get a specific service by ID"""
-    try:
-        service = ServiceManager.getService(service_id)
-        if not service:
-            return jsonify({"error": "Service not found"}), 404
+    if request.method == "GET":
+        service = Service_Manager.getService(service_name)
+        if service == None:
+            return "Service Not Found", 404
+        return jsonify(asdict(service)), 200
 
-        service_dict = vars(service)
-        service_dict['racks'] = [vars(rack) for rack in service.racks]
-
-        return jsonify(service_dict), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@SERVICE_BLUEPRINT.route('/<service_id>', methods=['PUT'])
-def ModifyService(service_id):
-    """Modify a service's name"""
-    try:
+    elif request.method == "PUT":
         data = request.get_json()
-        name = data.get('name')
+        name = str(data.get("name"))
+        n_allocated_racks = data.get("n_allocated_racks")
+        allocated_subnet = str(data.get("allocated_subnet"))
 
-        if not name:
-            return jsonify({"error": "New service name is required"}), 400
-
-        updated_service = ServiceManager.updateService(
-            service_id=service_id,
-            name=name,
-            racks=None,
-            ip_list=None
+        result = Service_Manager.updateService(
+            service_name, name, n_allocated_racks, allocated_subnet
         )
+        if result == False:
+            return "Failed to update service", 500
+        return "Service modified successfully!", 200
 
-        if not updated_service:
-            return jsonify({"error": "Service not found"}), 404
+    elif request.method == "DELETE":
+        result = Service_Manager.deleteService(service_name)
+        if result == False:
+            return "Failed to delete service", 500
+        return "Service deleted successfully!", 200
 
-        service_dict = vars(updated_service)
-        service_dict['racks'] = [vars(rack) for rack in updated_service.racks]
-
-        return jsonify(service_dict), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@SERVICE_BLUEPRINT.route('/<service_id>/rack/extend', methods=['PUT'])
-def ExtendServiceRack(service_id):
-    """Add more racks to a service"""
-    try:
-        data = request.get_json()
-        rack_ids = data.get('rack_ids', [])
-
-        if not rack_ids:
-            return jsonify({"error": "At least one rack ID is required"}), 400
-
-        for rack_id in rack_ids:
-            success = ServiceManager.assignRackToService(service_id, rack_id)
-            if not success:
-                return jsonify({"error": f"Failed to assign rack {rack_id}"}), 400
-
-        ServiceManager.updateHostCount(service_id)
-
-        service = ServiceManager.getService(service_id)
-        if not service:
-            return jsonify({"error": "Service not found after update"}), 404
-
-        service_dict = vars(service)
-        service_dict['racks'] = [vars(rack) for rack in service.racks]
-
-        return jsonify(service_dict), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@SERVICE_BLUEPRINT.route('/<service_id>/ip/extend', methods=['PUT'])
-def ExtendServiceIP(service_id):
-    """Add more IP addresses to a service"""
-    try:
-        data = request.get_json()
-        ip_addresses = data.get('ip_addresses', [])
-
-        if not ip_addresses:
-            return jsonify({"error": "At least one IP address is required"}), 400
-
-        for ip in ip_addresses:
-            success = ServiceManager.addIPToService(service_id, ip)
-            if not success:
-                return jsonify({"error": f"Failed to add IP {ip}"}), 400
-
-        service = ServiceManager.getService(service_id)
-        if not service:
-            return jsonify({"error": "Service not found after update"}), 404
-
-        service_dict = vars(service)
-        service_dict['racks'] = [vars(rack) for rack in service.racks]
-
-        return jsonify(service_dict), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-@SERVICE_BLUEPRINT.route('/<service_id>', methods=['DELETE'])
-def DeleteService(service_id):
-    """Delete a service by ID"""
-    try:
-        service = ServiceManager.getService(service_id)
-        if not service:
-            return jsonify({"error": "Service not found"}), 404
-
-        success = ServiceManager.deleteService(service_id)
-        if not success:
-            return jsonify({"error": "Failed to delete service"}), 500
-
-        return jsonify({
-            'service_id': service_id
-        }), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return "Method Not Allowed", 405
