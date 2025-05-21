@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify
 from DataBaseManage import *
-from utils import schema
 from .Host import DeleteHost
+from dataclasses import asdict
 
 Rack_Manager = RackManager()
-RACK_BLUEPRINT = Blueprint('rack', __name__)
+RACK_BLUEPRINT = Blueprint("rack", __name__)
 
-#Complete
-@RACK_BLUEPRINT.route('/', methods=['PUT'])
+
+@RACK_BLUEPRINT.route("/", methods=["POST"])
 def AddNewRack():
     data = request.get_json()
     name = str(data.get('name'))
@@ -37,7 +37,8 @@ def GetRack(rack_id):
     if rack == None:
         return "Rack Not Found", 404
     else:
-        return jsonify(rack.toDICT()), 200
+        return jsonify(asdict(rack)), 200
+
 
 # database can't update room_id
 def ModifyRack(rack_id, name, height, service_id, room_id):
@@ -49,6 +50,7 @@ def ModifyRack(rack_id, name, height, service_id, room_id):
 
 def DeleteRack(rack_id, force):
     rack = Rack_Manager.getRack(rack_id)
+
     if rack == None:
         return "Rack Not Found", 404
     if force:
