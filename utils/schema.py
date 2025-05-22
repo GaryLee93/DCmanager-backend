@@ -94,7 +94,7 @@ class SimpleService:
     n_allocated_racks: dict[str, int]  # how many racks are allocated in each dc
     n_hosts: int
     username: int
-    allocated_subnet: str
+    allocated_subnets: list[str]
     total_ip_list: list[str]
     available_ip_list: list[str]
 
