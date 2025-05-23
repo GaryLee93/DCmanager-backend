@@ -24,7 +24,7 @@ def test_homepage(client: flask.testing.FlaskClient):
     assert "Docker" in response.get_data(as_text=True)
 
 def test_AddNewDC_GetDC(client: flask.testing.FlaskClient):
-    response = client.post("/dc", data = json.dump({'name': 'Test_DC', 'height': 10}), content_type = "application/json")
+    response = client.post("/dc/", data = json.dumps({'name': 'Test_DC', 'height': 10}), content_type = "application/json")
     assert response.status_code == 200
     response = client.get("/dc/all")
     assert response.status_code == 200
