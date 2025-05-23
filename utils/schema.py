@@ -106,7 +106,6 @@ class UserRole(Enum):
 
 @dataclass
 class User:
-    id: str
     username: str
     password: str
     role: UserRole

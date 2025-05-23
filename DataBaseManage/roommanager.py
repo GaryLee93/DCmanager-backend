@@ -22,7 +22,7 @@ class RoomManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # Check if datacenter exists
                 cursor.execute(
-                    "SELECT name FROM datacenters WHERE datacenter_name = %s",
+                    "SELECT name FROM datacenters WHERE name = %s",
                     (datacenter_name,),
                 )
                 dc_data = cursor.fetchone()
@@ -79,7 +79,8 @@ class RoomManager(BaseManager):
                 room_data = cursor.fetchone()
 
                 if room_data is None:
-                    return None
+                    raise Exception(f"Room with name {room_name} not found")
+
 
                 # Get full rack information for this room
                 cursor.execute("SELECT * FROM racks WHERE room_name = %s", (room_name,))

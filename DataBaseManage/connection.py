@@ -8,7 +8,7 @@ DB_CONFIG = {
     "user": os.environ.get("DB_USER", "postgres"),
     "password": os.environ.get("DB_PASSWORD", "postgres"),
     "host": os.environ.get("DB_HOST", "localhost"),
-    "port": int(os.environ.get("DB_PORT", "5433")),
+    "port": int(os.environ.get("DB_PORT", "5432")),
 }
 
 # Create a connection pool
@@ -25,9 +25,10 @@ def test_connection():
         print(f"Connected to database! PostgreSQL version: {version[0]}")
         cur.close()
         conn.close()
+        return True  # 返回成功結果
     except Exception as e:
         print(f"Database connection failed: {e}")
-
+        return False  # 返回失敗結果
 
 class BaseManager:
     """Base class with common connection methods"""

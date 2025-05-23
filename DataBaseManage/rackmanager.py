@@ -39,7 +39,7 @@ class RackManager(BaseManager):
                     capacity=height,
                     n_hosts=0,
                     hosts=[],
-                    service_name="",
+                    service_name=None,  # Service name is not provided in the current context
                     dc_name=room_data["dc_name"],
                     room_name=room_data["name"],
                 )
@@ -123,9 +123,6 @@ class RackManager(BaseManager):
                     raise Exception(
                         f"Rack {rack_name} is over capacity. Used: {already_used}, Capacity: {result['height']}"
                     )
-                # Check if the rack is empty
-                if n_hosts == 0:
-                    raise Exception(f"Rack {rack_name} is empty. No hosts found.")
 
                 # Create and return the Rack object
                 return Rack(

@@ -55,7 +55,19 @@ class ServiceManager(BaseManager):
                 user_data = cursor.fetchone()
                 if user_data is None:
                     raise Exception(f"User {username} does not exist")
-                    
+                
+                # Insert the new service
+                cursor.execute(
+                    "INSERT INTO services (name, username) VALUES (%s, %s)RETURNING name, username",
+                    (name, username),
+                )
+                # Get the newly created service data
+                new_service = cursor.fetchone()
+
+                if not new_service:
+                    conn.rollback()
+                    return None
+
                 # Generate IP list from subnet
                 for allocated_subnet in allocated_subnets:
                     # Check if subnet is valid
@@ -74,7 +86,7 @@ class ServiceManager(BaseManager):
 
                     # Find existing IPs in the database
                     cursor.execute(
-                        "SELECT * FROM IPs WHERE ip = ANY(%s)", (ip_list,)
+                        "SELECT * FROM IPs WHERE ip::text = ANY(%s)", (ip_list,)
                     )
                     existing_ips = cursor.fetchall()
                     total_ips_list = []
@@ -97,32 +109,16 @@ class ServiceManager(BaseManager):
                         for ip in ip_list:
                             cursor.execute(
                                 """
-                                INSERT INTO IPs (ip, service_name, assigned, dc_name)
-                                VALUES (%s, %s, FALSE, %s)
+                                INSERT INTO IPs (ip, service_name, assigned)
+                                VALUES (%s, %s, FALSE)
                                 ON CONFLICT (ip) DO UPDATE
                                 SET service_name = EXCLUDED.service_name, assigned = FALSE
                                 """,
-                                (ip, name, list(n_allocated_racks.keys())[0])  # Assign to first DC for simplicity
+                                (ip, name)  
                             )
                             total_ips_list.append(ip)
                             available_ips_list.append(ip)
 
-                # Insert the new service
-                cursor.execute(
-                    """
-                    INSERT INTO services (name, username)
-                    VALUES (%s, %s)
-                    RETURNING name
-                    """,
-                    (name, username),
-                )
-
-                # Get the newly created service data
-                new_service = cursor.fetchone()
-
-                if not new_service:
-                    conn.rollback()
-                    return None
 
                 # Process allocated racks for each datacenter
                 all_assigned_racks = {}
@@ -403,15 +399,33 @@ class ServiceManager(BaseManager):
                     )
                     subnets = cursor.fetchall()
                     subnets = [subnet["subnet"] for subnet in subnets]
+                    # get total IP addresses of this service
+                    cursor.execute(
+                        "SELECT ip FROM IPs WHERE service_name = %s", 
+                        (data["name"],)
+                    )
+                    ip_data = cursor.fetchall()
+                    total_ip_list = [ip["ip"] for ip in ip_data]
+                    # get available IP addresses of this service
+                    cursor.execute(
+                        """
+                        SELECT ip FROM IPs 
+                        WHERE service_name = %s AND assigned = FALSE
+                        """,
+                        (data["name"],)
+                    )
+                    available_ip_data = cursor.fetchall()
+                    available_ip_list = [ip["ip"] for ip in available_ip_data]
                     # Create a SimpleService object with summary information
                     service_list.append(
                         SimpleService(
                             name=data["name"],
                             username=data["username"],
-                            allocated_subnet=subnets,
-                            rack_count=data["rack_count"],
-                            host_count=data["host_count"],
-                            ip_count=data["ip_count"]
+                            allocated_subnets=subnets,
+                            n_allocated_racks=data["rack_count"],
+                            n_hosts=data["host_count"],
+                            total_ip_list= total_ip_list,
+                            available_ip_list= available_ip_list,
                         )
                     )
 
@@ -578,7 +592,8 @@ class ServiceManager(BaseManager):
                 )
                 # find subnet of this service
                 cursor.execute(
-                    "SELECT subnet FROM services WHERE name = %s", (service_name,)
+                    "SELECT subnet FROM subnets WHERE service_name = %s",
+                    (service_name,)
                 )
                 subnet = cursor.fetchone()
                 # delete IP addresses from this subnet
@@ -644,7 +659,7 @@ class ServiceManager(BaseManager):
 
                 # Find existing IPs in the database
                 cursor.execute(
-                    "SELECT * FROM IPs WHERE ip = ANY(%s)", (ip_list,)
+                    "SELECT * FROM IPs WHERE ip::text = ANY(%s)", (ip_list,)
                 )
                 existing_ips = cursor.fetchall()
                 if existing_ips:
@@ -666,12 +681,12 @@ class ServiceManager(BaseManager):
                 for ip in ip_list:
                     cursor.execute(
                         """
-                        INSERT INTO IPs (ip, service_name, assigned, dc_name)
-                        VALUES (%s, %s, FALSE, %s)
+                        INSERT INTO IPs (ip, service_name, assigned)
+                        VALUES (%s, %s, FALSE)
                         ON CONFLICT (ip) DO UPDATE
                         SET service_name = EXCLUDED.service_name, assigned = FALSE
                         """,
-                        (ip, service_name, list(service["allocated_racks"].keys())[0])  # Assign to first DC for simplicity
+                        (ip, service_name)  
                     )
 
                 # Commit all changes

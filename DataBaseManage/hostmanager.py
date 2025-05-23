@@ -75,7 +75,7 @@ class HostManager(BaseManager):
                     ),
                 )
                 conn.commit()
-
+                
                 return new_host
 
         except Exception as e:
@@ -111,8 +111,17 @@ class HostManager(BaseManager):
                     return None
 
                 # Create and return the Host object
-                return result
-
+                return Host(
+                    name=result["name"],
+                    height=result["height"],
+                    ip=result["ip"],
+                    running=result["running"],
+                    service_name=result["service_name"],
+                    dc_name=result["dc_name"],
+                    room_name=result["room_name"],
+                    rack_name=result["rack_name"],
+                    pos=result["pos"],
+                )
         except Exception as e:
             raise e
         finally:
@@ -133,10 +142,24 @@ class HostManager(BaseManager):
         try:
             conn = self.get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT * FROM ORDER BY name")
-                result = cursor.fetchall()
+                cursor.execute("SELECT * FROM hosts ORDER BY name")
+                results = cursor.fetchall()
+                hosts = []
+                for result in results:
+                    hosts.append(Host(
+                        name=result["name"],
+                        height=result["height"],
+                        ip=result["ip"],
+                        running=result["running"],
+                        service_name=result["service_name"],
+                        dc_name=result["dc_name"],
+                        room_name=result["room_name"],
+                        rack_name=result["rack_name"],
+                        pos=result["pos"],
+                    ))
+                return hosts
 
-                return result
+
 
         except Exception as e:
             raise e

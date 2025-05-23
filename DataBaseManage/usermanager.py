@@ -24,7 +24,7 @@ class UserManager(BaseManager):
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 # Insert new user
                 cursor.execute(
-                    "INSERT INTO users (username, password, role) VALUES (%s, %s, %s) ",
+                    "INSERT INTO users(username, password, role) VALUES (%s, %s, %s) ",
                     (username, password, role),
                 )
                 conn.commit()
@@ -98,46 +98,40 @@ class UserManager(BaseManager):
         conn = None
         try:
             conn = self.get_connection()
-            with conn.cursor() as cursor:
-                update_fields = []
-                params = []
-
-                # Check if the user exists
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:  # 使用 RealDictCursor
                 cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
                 user = cursor.fetchone()
                 if not user:
+                    print(f"User {username} does not exist")
                     return None
                 
-                # Prepare the update query
-                update_fields.append("username = %s")
-                params.append(username)
-
-                # Check if the new username already exists
-                cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-                existing_user = cursor.fetchone()
-                if existing_user:
-                    return None
+                update_fields = []
+                params = []
                 
-                # Add fields to update
+                # add fields to update if they are not None
                 if password is not None:
                     update_fields.append("password = %s")
                     params.append(password)
-
+    
                 if role is not None:
                     update_fields.append("role = %s")
                     params.append(role)
-
-                # Update the user
+    
+                # if no fields to update, return the user as is
+                if not update_fields:
+                    return self.getUser(username)
+                update_fields.append("updated_at = CURRENT_TIMESTAMP")
+                    
                 query = f"UPDATE users SET {', '.join(update_fields)} WHERE username = %s"
                 params.append(username)
                 cursor.execute(query, params)
                 conn.commit()
-
-                # Return the updated user
+    
                 return self.getUser(username)
         except Exception as e:
             if conn:
                 conn.rollback()
+            print(f"Error updating user: {e}")
             raise e
         finally:
             if conn:
