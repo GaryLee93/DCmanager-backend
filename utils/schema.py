@@ -44,7 +44,6 @@ class Room:
     n_racks: int
     racks: list[SimpleRack]
     n_hosts: int
-    service_name: str
     dc_name: str
 
 
@@ -84,7 +83,7 @@ class Service:
     ]  # how many racks are allocated in each dc
     hosts: list[Host]
     username: int
-    allocated_subnet: str
+    allocated_subnets: list[str]
     total_ip_list: list[str]
     available_ip_list: list[str]
 
@@ -95,7 +94,7 @@ class SimpleService:
     n_allocated_racks: dict[str, int]  # how many racks are allocated in each dc
     n_hosts: int
     username: int
-    allocated_subnet: str
+    allocated_subnets: list[str]
     total_ip_list: list[str]
     available_ip_list: list[str]
 

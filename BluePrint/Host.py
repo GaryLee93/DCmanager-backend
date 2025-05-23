@@ -56,7 +56,7 @@ def GetHost(host_name):
 @HOST_BLUEPRINT.route("/<host_name>", methods=["PUT"])
 def ModifyHost(host_name):
     """
-    Add a new host.
+    Modify host.
 
     Params:
         name, height, running, rack_name, pos
