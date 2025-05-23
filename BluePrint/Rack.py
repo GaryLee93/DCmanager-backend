@@ -30,27 +30,36 @@ def AddRack():
 
 @RACK_BLUEPRINT.route("/<rack_name>", methods=["GET", "PUT", "DELETE"])
 def ProcessRack(rack_name):
+    data = request.get_json()
+    if request.method == 'GET':
+        return GetRack(rack_name)
+    elif request.method == 'PUT':
+        name = str(data.get('name'))
+        height = int(data.get('height'))
+        room_name = str(data.get('room_name'))
+        return ModifyRack(rack_name, name, height, room_name)
+    elif request.method == 'DELETE':
+        return DeleteRack(rack_name)
 
-    if request.method == "GET":
-        rack = Rack_Manager.getRack(rack_name)
-        if rack == None:
-            return "Rack Not Found", 404
+def GetRack(rack_name):
+    rack = Rack_Manager.getRack(rack_name)
+    if rack == None:
+        return Response(status = 404)
+    else:
         return jsonify(asdict(rack)), 200
 
-    elif request.method == "PUT":
-        data = request.get_json()
-        name = str(data.get("name"))
-        height = int(data.get("height"))
-        room_name = str(data.get("room_name"))
-        result = Rack_Manager.updateRack(rack_name, name, height, room_name)
-        if result == False:
-            return "Failed to update rack", 500
-        return "Rack modified successfully!", 200
+# database can't update room_id
+def ModifyRack(rack_name, name, height, room_name):
+    if Rack_Manager.getRack(rack_name) == None:
+        return Response(status = 404)
+    else:
+        Rack_Manager.updateRack(rack_name, name, height, room_name)
+        return Response(status = 200)
 
-    elif request.method == "DELETE":
-        result = Rack_Manager.deleteRack(rack_name)
-        if result == False:
-            return "Failed to delete rack", 500
-        return "Rack deleted successfully!", 200
-
-    return "Method Not Allowed", 405
+def DeleteRack(rack_name):
+    rack = Rack_Manager.getRack(rack_name)
+    if rack == None:
+        return Response(status = 404)
+    for host in rack.hosts:
+        DeleteHost(host.name)
+    Rack_Manager.deleteRack(rack_name)
