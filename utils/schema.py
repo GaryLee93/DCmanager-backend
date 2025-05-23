@@ -44,14 +44,7 @@ class Room:
     n_racks: int
     racks: list[SimpleRack]
     n_hosts: int
-    name: str
-    height: int
-    capacity: int  # 還剩多少容量
-    n_hosts: int
-    hosts: list[Host]
     service_name: str
-    dc_name: str
-    room_name: str
     dc_name: str
 
 
