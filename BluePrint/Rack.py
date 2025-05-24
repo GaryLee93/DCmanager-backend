@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from .Host import DeleteHost
+from .Host import DeleteHost, ModifyHost
 from dataclasses import asdict
 
 Rack_Manager = RackManager()
@@ -19,9 +19,9 @@ def AddNewRack():
         Rack
     """
     data = request.get_json()
-    name = str(data.get("name"))
-    height = int(data.get("height"))
-    room_name = str(data.get("room_name"))
+    name = data.get("name")
+    height = data.get("height")
+    room_name = data.get("room_name")
     if Rack_Manager.getRack(name) != None:
         return jsonify({"error": "Rack Already Exists"}), 400
     rack = Rack_Manager.createRack(name, height, room_name)
@@ -36,9 +36,9 @@ def ProcessRack(rack_name):
         return DeleteRack(rack_name)
     data = request.get_json()
     if request.method == 'PUT':
-        name = str(data.get('name'))
-        height = int(data.get('height'))
-        room_name = str(data.get('room_name'))
+        name = data.get('name')
+        height = data.get('height')
+        room_name = data.get('room_name')
         return ModifyRack(rack_name, name, height, room_name)
     return jsonify({"error": "Invalid Method"}), 405
 
@@ -51,7 +51,8 @@ def GetRack(rack_name):
 
 # database can't update room_id
 def ModifyRack(rack_name, name, height, room_name):
-    if Rack_Manager.getRack(rack_name) == None:
+    rack = Rack_Manager.getRack(rack_name)
+    if rack == None:
         return jsonify({"error": "Rack Not Found"}), 404
     if not Rack_Manager.updateRack(rack_name, name, height, room_name):
         return jsonify({"error": "Update Failed"}), 500

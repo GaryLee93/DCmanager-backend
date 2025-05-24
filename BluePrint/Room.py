@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from dataclasses import asdict
-from .Rack import DeleteRack
+from .Rack import DeleteRack, ModifyRack
 
 Room_Manager = RoomManager()
 ROOM_BLUEPRINT = Blueprint("room", __name__)
@@ -10,9 +10,9 @@ ROOM_BLUEPRINT = Blueprint("room", __name__)
 @ROOM_BLUEPRINT.route("/", methods=["POST"])
 def AddNewRoom():
     data = request.get_json()
-    name = str(data.get("name"))
-    height = int(data.get("height"))
-    dc_name = str(data.get("dc_name"))
+    name = data.get("name")
+    height = data.get("height")
+    dc_name = data.get("dc_name")
     if Room_Manager.getRoom(name) != None:
         return jsonify({"error": "Room Already Exists"}), 400
     room = Room_Manager.createRoom(name, height, dc_name)
@@ -27,9 +27,9 @@ def ProcessRoom(room_name):
         return DeleteRoom(room_name)
     data = request.get_json()
     if request.method == 'PUT':
-        name = str(data.get('name'))
-        height = int(data.get('height'))
-        dc_name = str(data.get('dc_name'))
+        name = data.get('name')
+        height = data.get('height')
+        dc_name = data.get('dc_name')
         return ModifyRoom(room_name, name, height, dc_name)
     return jsonify({"error": "Invalid Method"}), 405
 
@@ -41,8 +41,12 @@ def GetRoom(room_name):
         return jsonify(asdict(room)), 200
 
 def ModifyRoom(room_name, new_name, height, dc_name):
-    if Room_Manager.getRoom(room_name) == None:
+    room = Room_Manager.getRoom(room_name)
+    if room == None:
         return jsonify({"error": "Room Not Found"}), 404
+    for rack in room.racks:
+        if not ModifyRack(rack.name, rack.name, rack.height, new_name):
+            return jsonify({"error": "Update Failed"}), 500
     if not Room_Manager.updateRoom(room_name, new_name, height, dc_name):
         return jsonify({"error": "Update Failed"}), 500
     return Response(status = 200)
