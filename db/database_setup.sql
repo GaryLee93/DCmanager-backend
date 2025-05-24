@@ -45,8 +45,8 @@ CREATE TABLE racks (
     name VARCHAR(255) PRIMARY KEY, -- Name of the rack
     height INTEGER NOT NULL, -- Height of the rack
     service_name VARCHAR(255) REFERENCES services(name) ON UPDATE CASCADE, -- Name of the service (redundant for faster access)
-    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
-    room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
+    dc_name VARCHAR(255) REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
+    room_name VARCHAR(255) REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -67,9 +67,9 @@ CREATE TABLE hosts (
     ip INET REFERENCES IPs(ip) ON UPDATE CASCADE, -- IP address (linked to service_ips)
     running BOOLEAN DEFAULT FALSE, -- Whether the host is running
     service_name VARCHAR(255), -- Name of the service (redundant for faster access)
-    dc_name VARCHAR(255) NOT NULL REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
-    room_name VARCHAR(255) NOT NULL REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
-    rack_name VARCHAR(255) NOT NULL REFERENCES racks(name) ON UPDATE CASCADE, -- Name of the rack (redundant for faster access)
+    dc_name VARCHAR(255) REFERENCES datacenters(name) ON UPDATE CASCADE, -- Name of the datacenter (redundant for faster access)
+    room_name VARCHAR(255) REFERENCES rooms(name) ON UPDATE CASCADE, -- Name of the room (redundant for faster access)
+    rack_name VARCHAR(255)  REFERENCES racks(name) ON UPDATE CASCADE, -- Name of the rack (redundant for faster access)
     pos INTEGER NOT NULL, -- Position of the host in the rack
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
