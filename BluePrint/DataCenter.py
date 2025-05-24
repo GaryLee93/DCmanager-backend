@@ -37,7 +37,7 @@ def ProcessDC(dc_name):
     return jsonify({"error":"Invalid Method"}), 405
 
 def GetDC(dc_name):
-    dataCenter = DC_manager.getDatacenter(dc_name)  
+    dataCenter = DC_manager.getDatacenter(dc_name)
     if dataCenter == None:
         return jsonify({"error":"DataCenter Not Found"}), 404
     else:

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from .Host import DeleteHost, ModifyHost
 from dataclasses import asdict
+from .Room import Room_Manager
 
 Rack_Manager = RackManager()
 RACK_BLUEPRINT = Blueprint("rack", __name__)
@@ -24,6 +25,8 @@ def AddNewRack():
     room_name = data.get("room_name")
     if Rack_Manager.getRack(name) != None:
         return jsonify({"error": "Rack Already Exists"}), 400
+    if not Room_Manager.getRoom(room_name):
+        return jsonify({"error": "Room Not Found"}), 404
     rack = Rack_Manager.createRack(name, height, room_name)
     return jsonify(asdict(rack)), 200
 
@@ -54,6 +57,8 @@ def ModifyRack(rack_name, name, height, room_name):
     rack = Rack_Manager.getRack(rack_name)
     if rack == None:
         return jsonify({"error": "Rack Not Found"}), 404
+    if room_name and Room_Manager.getRoom(room_name) == None:
+        return jsonify({"error": "Destination Room Not Found"}), 404
     if not Rack_Manager.updateRack(rack_name, name, height, room_name):
         return jsonify({"error": "Update Failed"}), 500
     return Response(status = 200)
