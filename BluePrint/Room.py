@@ -10,9 +10,9 @@ ROOM_BLUEPRINT = Blueprint("room", __name__)
 @ROOM_BLUEPRINT.route("/", methods=["POST"])
 def AddNewRoom():
     data = request.get_json()
-    name = str(data.get("name"))
-    height = int(data.get("height"))
-    dc_name = str(data.get("dc_name"))
+    name = data.get("name")
+    height = data.get("height")
+    dc_name = data.get("dc_name")
     if Room_Manager.getRoom(name) != None:
         return jsonify({"error": "Room Already Exists"}), 400
     room = Room_Manager.createRoom(name, height, dc_name)
@@ -27,9 +27,9 @@ def ProcessRoom(room_name):
         return DeleteRoom(room_name)
     data = request.get_json()
     if request.method == 'PUT':
-        name = str(data.get('name'))
-        height = int(data.get('height'))
-        dc_name = str(data.get('dc_name'))
+        name = data.get('name')
+        height = data.get('height')
+        dc_name = data.get('dc_name')
         return ModifyRoom(room_name, name, height, dc_name)
     return jsonify({"error": "Invalid Method"}), 405
 

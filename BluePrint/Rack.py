@@ -35,10 +35,11 @@ def ProcessRack(rack_name):
     if request.method == 'DELETE':
         return DeleteRack(rack_name)
     data = request.get_json()
+    print(data)
     if request.method == 'PUT':
-        name = str(data.get('name'))
-        height = int(data.get('height'))
-        room_name = str(data.get('room_name'))
+        name = data.get('name')
+        height = data.get('height')
+        room_name = data.get('room_name')
         return ModifyRack(rack_name, name, height, room_name)
     return jsonify({"error": "Invalid Method"}), 405
 
