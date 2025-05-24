@@ -3,19 +3,19 @@ from DataBaseManage import *
 from dataclasses import asdict
 from .Room import DeleteRoom
 
-
 DC_manager = DatacenterManager()
 
 DATA_CENTER_BLUEPRINT = Blueprint("dc", __name__)
-
 
 @DATA_CENTER_BLUEPRINT.route("/", methods=["POST"])
 def AddNewDC():
     data = request.get_json()
     name = str(data.get("name"))
     height = int(data.get("height"))
-    DC_manager.createDatacenter(name, height)
-    return Response(status = 200)
+    if DC_manager.getDatacenter(name) != None:
+        return jsonify({"error":"DataCenter Already Exists"}), 400
+    dc = DC_manager.createDatacenter(name, height)
+    return jsonify(asdict(dc)), 200
 
 @DATA_CENTER_BLUEPRINT.route('/all', methods=['GET'])
 def GetAllDC():
@@ -34,27 +34,28 @@ def ProcessDC(dc_name):
         name = str(data.get('name'))
         height = int(data.get('height'))
         return ModifyDC(dc_name, name, height)
-    return jsonify({"error": "Invalid Method"}), 400
+    return jsonify({"error":"Invalid Method"}), 405
 
 def GetDC(dc_name):
     dataCenter = DC_manager.getDatacenter(dc_name)  
     if dataCenter == None:
-        return jsonify({"error": "Data Center Not Found"}), 404
+        return jsonify({"error":"DataCenter Not Found"}), 404
     else:
         return jsonify(asdict(dataCenter)), 200
 
 def ModifyDC(dc_name, name, height):
     if(DC_manager.getDatacenter(dc_name) == None):
-        return jsonify({"error":"Data Center Not Found"}), 404
+        return jsonify({"error":"DataCenter Not Found"}), 404
     if not DC_manager.updateDatacenter(dc_name, name, height):
-        return Response(status = 400)
+        return jsonify({"error":"Update Failed"}), 500
     return Response(status = 200)
 
 def DeleteDC(dc_name):
     datacenter = DC_manager.getDatacenter(dc_name)
     if datacenter == None:
-        return jsonify({"error":"Data Center Not Found"}), 404
+        return jsonify({"error":"DataCenter Not Found"}), 404
     for room in datacenter.rooms:
         DeleteRoom(room.name)
-    DC_manager.deleteDatacenter(dc_name)
-    return Response(status =200)
+    if not DC_manager.deleteDatacenter(dc_name):
+        return jsonify({"error":"Delete Failed"}), 500
+    return Response(status = 200)
