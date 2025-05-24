@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE users (
     username VARCHAR(255) PRIMARY KEY, -- Unique username
     password VARCHAR(255) NOT NULL, -- Password (hashed)
-    role VARCHAR(50) NOT NULL CHECK (role IN ('normal', 'manager')), -- User role (changed from permission to role)
+    role VARCHAR(50) NOT NULL CHECK (role IN ('normal', 'admin')), -- User role (changed from permission to role)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
