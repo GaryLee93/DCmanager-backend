@@ -113,12 +113,13 @@ class RoomManager(BaseManager):
                 cursor.execute(
                     "SELECT COUNT(*) FROM hosts WHERE room_name = %s", (room_name,)
                 )
-                n_hosts = cursor.fetchone()[0]
+                result = cursor.fetchone()
+                n_hosts = result[0] if result else 0
                 # Create and return the Room object
                 return Room(
                     name=room_data["name"],
                     height=room_data["height"],
-                    n_racks=room_data["n_racks"],
+                    n_racks=len(racks),
                     racks=racks,
                     n_hosts=n_hosts,
                     dc_name=room_data["dc_name"],

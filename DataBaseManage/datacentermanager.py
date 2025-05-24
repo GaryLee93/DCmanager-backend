@@ -97,12 +97,14 @@ class DatacenterManager(BaseManager):
                     cursor.execute(
                         "SELECT COUNT(*) FROM racks WHERE room_name = %s", (room_name,)
                     )
-                    n_racks = cursor.fetchone()["count"]
+                    result = cursor.fetchone()
+                    n_racks = result["count"] if result else 0
                     # count hosts in this room
                     cursor.execute(
                         "SELECT COUNT(*) FROM hosts WHERE room_name = %s", (room_name,)
                     )
-                    n_hosts = cursor.fetchone()["count"]
+                    result = cursor.fetchone()
+                    n_hosts = result["count"] if result else 0
                     # Create SimpleRoom object
                     rooms.append(
                         SimpleRoom(
@@ -162,19 +164,22 @@ class DatacenterManager(BaseManager):
                         "SELECT COUNT(*) FROM rooms WHERE dc_name = %s",
                         (datacenter_name,),
                     )
-                    n_rooms = cursor.fetchone()["count"]
+                    result = cursor.fetchone()
+                    n_rooms = result["count"] if result else 0
                     # Count the number of racks
                     cursor.execute(
                         "SELECT COUNT(*) FROM racks WHERE dc_name = %s",
                         (datacenter_name,),
                     )
-                    n_racks = cursor.fetchone()["count"]
+                    result = cursor.fetchone()
+                    n_racks = result["count"] if result else 0
                     # Count the number of hosts
                     cursor.execute(
                         "SELECT COUNT(*) FROM hosts WHERE dc_name = %s",
                         (datacenter_name,),
                     )
-                    n_hosts = cursor.fetchone()["count"]
+                    result = cursor.fetchone()
+                    n_hosts = result["count"] if result else 0
                     # Create DataCenter object and append to list
                     datacenters.append(
                         SimpleDataCenter(
