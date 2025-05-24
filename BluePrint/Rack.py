@@ -30,16 +30,17 @@ def AddRack():
 
 @RACK_BLUEPRINT.route("/<rack_name>", methods=["GET", "PUT", "DELETE"])
 def ProcessRack(rack_name):
-    data = request.get_json()
     if request.method == 'GET':
         return GetRack(rack_name)
-    elif request.method == 'PUT':
+    if request.method == 'DELETE':
+        return DeleteRack(rack_name)
+    data = request.get_json()
+    if request.method == 'PUT':
         name = str(data.get('name'))
         height = int(data.get('height'))
         room_name = str(data.get('room_name'))
         return ModifyRack(rack_name, name, height, room_name)
-    elif request.method == 'DELETE':
-        return DeleteRack(rack_name)
+    return jsonify({"error": "Invalid Method"}), 400
 
 def GetRack(rack_name):
     rack = Rack_Manager.getRack(rack_name)

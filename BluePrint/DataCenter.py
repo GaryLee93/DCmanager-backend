@@ -12,8 +12,6 @@ DATA_CENTER_BLUEPRINT = Blueprint("dc", __name__)
 @DATA_CENTER_BLUEPRINT.route("/", methods=["POST"])
 def AddNewDC():
     data = request.get_json()
-    if data is None:
-        return jsonify({"error": "Invalid JSON"}), 400
     name = str(data.get("name"))
     height = int(data.get("height"))
     DC_manager.createDatacenter(name, height)
@@ -25,22 +23,21 @@ def GetAllDC():
     ret_list = [asdict(dc) for dc in dc_list if dc is not None]
     return jsonify(ret_list), 200
 
-
 @DATA_CENTER_BLUEPRINT.route('/<dc_name>', methods = ['GET', 'PUT', 'DELETE'])
 def ProcessDC(dc_name):
-    data = request.get_json()
     if request.method == 'GET':
         return GetDC(dc_name)
-    elif request.method == 'PUT':
+    if request.method == 'DELETE':
+        return DeleteDC(dc_name)
+    data = request.get_json()
+    if request.method == 'PUT':
         name = str(data.get('name'))
         height = int(data.get('height'))
         return ModifyDC(dc_name, name, height)
-    elif request.method == 'DELETE':
-        return DeleteDC(dc_name)
     return jsonify({"error": "Invalid Method"}), 400
 
 def GetDC(dc_name):
-    dataCenter = DC_manager.getDatacenter(dc_name)
+    dataCenter = DC_manager.getDatacenter(dc_name)  
     if dataCenter == None:
         return jsonify({"error": "Data Center Not Found"}), 404
     else:
