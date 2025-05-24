@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from .Host import DeleteHost
+from .Host import DeleteHost, ModifyHost
 from dataclasses import asdict
 from .Room import Room_Manager
 
@@ -54,7 +54,8 @@ def GetRack(rack_name):
 
 # database can't update room_id
 def ModifyRack(rack_name, name, height, room_name):
-    if Rack_Manager.getRack(rack_name) == None:
+    rack = Rack_Manager.getRack(rack_name)
+    if rack == None:
         return jsonify({"error": "Rack Not Found"}), 404
     if room_name and Room_Manager.getRoom(room_name) == None:
         return jsonify({"error": "Destination Room Not Found"}), 404

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from dataclasses import asdict
-from .Room import DeleteRoom
+from .Room import DeleteRoom, ModifyRoom
 
 DC_manager = DatacenterManager()
 
@@ -44,8 +44,12 @@ def GetDC(dc_name):
         return jsonify(asdict(dataCenter)), 200
 
 def ModifyDC(dc_name, name, height):
-    if(DC_manager.getDatacenter(dc_name) == None):
+    dc = DC_manager.getDatacenter(dc_name)
+    if dc == None:
         return jsonify({"error":"DataCenter Not Found"}), 404
+    for room in dc.rooms:
+        if not ModifyRoom(room.name, room.name, room.height, name):
+            return jsonify({"error":"Update Failed"}), 500
     if not DC_manager.updateDatacenter(dc_name, name, height):
         return jsonify({"error":"Update Failed"}), 500
     return Response(status = 200)
