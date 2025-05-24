@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from dataclasses import asdict
 
@@ -23,6 +23,11 @@ def AddService():
     n_allocated_racks = data.get("n_allocated_racks")
     allocated_subnets = data.get("allocated_subnets")
     username = data.get("username")
+
+    # Check if host already exists
+    existing_service = Service_Manager.getService(name)
+    if existing_service is not None:
+        return "Service already exists", 400
 
     new_service = Service_Manager.createService(
         name, n_allocated_racks, allocated_subnets, username
@@ -59,19 +64,26 @@ def ProcessRoom(service_name):
         data = request.get_json()
         name = str(data.get("name"))
         n_allocated_racks = data.get("n_allocated_racks")
-        allocated_subnet = str(data.get("allocated_subnet"))
+        allocated_subnets = data.get("allocated_subnets")
 
-        result = Service_Manager.updateService(
-            service_name, name, n_allocated_racks, allocated_subnet
-        )
-        if result == False:
-            return "Failed to update service", 500
-        return "Service modified successfully!", 200
+        result = Service_Manager.getService(service_name)
+        if result == None:
+            return jsonify({"error": "Service Not Found"}), 404
+
+        if not name or not isinstance(n_allocated_racks, dict) or not isinstance(allocated_subnets, list):
+            return jsonify({"error": "Invalid input"}), 400
+
+        if not Service_Manager.updateService(service_name, name, n_allocated_racks, allocated_subnets):
+            return jsonify({"error": "Modification Failed"}), 500
+
+        return "Service modified successfully", 200
 
     elif request.method == "DELETE":
-        result = Service_Manager.deleteService(service_name)
-        if result == False:
-            return "Failed to delete service", 500
-        return "Service deleted successfully!", 200
+        result = Service_Manager.getService(service_name)
+        if result == None:
+            return jsonify({"error": "Service Not Found"}), 404
+        if not Service_Manager.deleteService(service_name):
+            return jsonify({"error": "Delete Failed"}), 500
+        return Response(status=200)
 
     return "Method Not Allowed", 405

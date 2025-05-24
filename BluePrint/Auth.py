@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from utils import schema
 from DataBaseManage import *
 
-UserManager = UserManager()
+User_Manager = UserManager()
 AUTH_BLUEPRINT = Blueprint("auth", __name__)
 
 
@@ -14,11 +14,11 @@ def Login():
     if not username or not password:
         return jsonify({"error": "Username and password are required"}), 400
 
-    user = UserManager.authenticate(username, password)
+    user = User_Manager.authenticate(username, password)
     if user:
         return jsonify({
             "username": user.username,
-            "role": user.role
+            "role": user.role.value
         })
     else:
         return jsonify({"error": "Invalid credentials"}), 400
@@ -34,14 +34,14 @@ def Register():
         return jsonify({"error": "Username and password are required"}), 400
 
     # Check if username already exists
-    if UserManager.getUser(username=username):
+    if User_Manager.getUser(username=username):
         return jsonify({"error": "Username already exists"}), 400
 
     try:
-        user = UserManager.createUser(username, password, role)
+        user = User_Manager.createUser(username, password, role)
         return jsonify({
             "username": user.username,
-            "role": user.role
+            "role": user.role.value
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -50,3 +50,17 @@ def Register():
 @AUTH_BLUEPRINT.route("/logout", methods=["POST"])
 def Logout():
     return jsonify({"message": "Logged out successfully"})
+
+@AUTH_BLUEPRINT.route('/user/<username>', methods=['DELETE'])
+def delete_user(username):
+    if not username or ' ' in username:
+        return jsonify({'error': 'Invalid username'}), 404
+
+    if User_Manager.getUser(username):
+        try:
+            User_Manager.deleteUser(username)
+            return jsonify({"message": f"User {username} deleted successfully"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"message": f"User not found"}), 404

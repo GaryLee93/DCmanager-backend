@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from utils import schema
 import uuid
@@ -26,12 +26,20 @@ def AddHost():
     rack_name = data.get("rack_name")
     pos = data.get("pos")
 
+    # Check if host already exists
+    existing_host = Host_Manager.getHost(name)
+    if existing_host is not None:
+        return "Host already exists", 400
+
     new_host = Host_Manager.createHost(
         name,
         height,
         rack_name,
         pos,
     )
+
+    if new_host is None:
+        return "Failed to create host", 500
 
     return jsonify(asdict(new_host)), 200
 
@@ -70,17 +78,28 @@ def ModifyHost(host_name):
     rack_name = data.get("rack_name")
     pos = data.get("pos")
 
+    # Check if host exists first
+    host = Host_Manager.getHost(host_name)
+    if not host:
+        return "Host not found", 404
+
     result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     if result == False:
-        return "Failed to update host", 500
+        return "Update Failed", 500
+
+    # Get the updated host and return it
+    updated_host = Host_Manager.getHost(name if name else host_name)
+    if updated_host:
+        return jsonify(asdict(updated_host)), 200
     else:
-        return "Host modified successfully!", 200
+        return "Update Failed", 500
 
 
-@HOST_BLUEPRINT.route("/<host_id>", methods=["DELETE"])
-def DeleteHost(host_id):
-    result = Host_Manager.deleteHost(host_id)
-    if result == False:
-        return "Failed to delete host", 500
-    else:
-        return "Host deleted successfully!", 200
+@HOST_BLUEPRINT.route("/<host_name>", methods=["DELETE"])
+def DeleteHost(host_name):
+    host = Host_Manager.getHost(host_name)
+    if host == None:
+        return jsonify({"error": "Host Not Found"}), 404
+    if not Host_Manager.deleteHost(host_name):
+        return jsonify({"error": "Delete Failed"}), 500
+    return Response(status=200)
