@@ -59,8 +59,11 @@ def ModifyRack(rack_name, name, height, room_name):
         return jsonify({"error": "Rack Not Found"}), 404
     if room_name and Room_Manager.getRoom(room_name) == None:
         return jsonify({"error": "Destination Room Not Found"}), 404
+    for host in rack.hosts:
+        if not ModifyHost(host.name, host.name, host.height, host.running, name, host.pos):
+            return jsonify({"error": "Host Update Failed"}), 500
     if not Rack_Manager.updateRack(rack_name, name, height, room_name):
-        return jsonify({"error": "Update Failed"}), 500
+        return jsonify({"error": "Rack Update Failed"}), 500
     return Response(status = 200)
 
 def DeleteRack(rack_name):

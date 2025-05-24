@@ -14,9 +14,6 @@ def AddNewRoom():
     name = data.get("name")
     height = data.get("height")
     dc_name = data.get("dc_name")
-    name = data.get("name")
-    height = data.get("height")
-    dc_name = data.get("dc_name")
     if Room_Manager.getRoom(name) != None:
         return jsonify({"error": "Room Already Exists"}), 400
     if not DC_manager.getDatacenter(dc_name):
@@ -33,9 +30,6 @@ def ProcessRoom(room_name):
         return DeleteRoom(room_name)
     data = request.get_json()
     if request.method == 'PUT':
-        name = data.get('name')
-        height = data.get('height')
-        dc_name = data.get('dc_name')
         name = data.get('name')
         height = data.get('height')
         dc_name = data.get('dc_name')
@@ -57,9 +51,9 @@ def ModifyRoom(room_name, new_name, height, dc_name):
         return jsonify({"error": "Datacenter Not Found"}), 404
     for rack in room.racks:
         if not ModifyRack(rack.name, rack.name, rack.height, new_name):
-            return jsonify({"error": "Update Failed"}), 500
+            return jsonify({"error": "Rack Update Failed"}), 500
     if not Room_Manager.updateRoom(room_name, new_name, height, dc_name):
-        return jsonify({"error": "Update Failed"}), 500
+        return jsonify({"error": "Room Update Failed"}), 500
     return Response(status = 200)
 
 def DeleteRoom(room_name):
