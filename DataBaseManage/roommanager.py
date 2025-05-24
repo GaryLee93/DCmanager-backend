@@ -114,7 +114,7 @@ class RoomManager(BaseManager):
                     "SELECT COUNT(*) FROM hosts WHERE room_name = %s", (room_name,)
                 )
                 result = cursor.fetchone()
-                n_hosts = result[0] if result else 0
+                n_hosts = result["count"] if result else 0
                 # Create and return the Room object
                 return Room(
                     name=room_data["name"],
