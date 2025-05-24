@@ -40,6 +40,11 @@ def GetAllService():
     ret_list = [asdict(service) for service in service_list if service is not None]
     return jsonify(ret_list), 200
 
+@SERVICE_BLUEPRINT.route("/user/<username>", methods=["GET"])
+def GetUserServices(username):
+    service_list = Service_Manager.getAllServices()
+    ret_list = [asdict(service) for service in service_list if service is not None and service.username == username]
+    return jsonify(ret_list), 200
 
 @SERVICE_BLUEPRINT.route("/<service_name>", methods=["GET", "PUT", "DELETE"])
 def ProcessRoom(service_name):
