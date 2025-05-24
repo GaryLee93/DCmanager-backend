@@ -27,9 +27,7 @@ class RoomManager(BaseManager):
                 )
                 dc_data = cursor.fetchone()
                 if dc_data is None:
-                    raise Exception(
-                        f"Datacenter named {datacenter_name} does not exist"
-                    )
+                    return None
 
                 new_room = Room(
                     name=name,
@@ -177,9 +175,7 @@ class RoomManager(BaseManager):
                         "SELECT name FROM datacenters WHERE name = %s", (dc_name,)
                     )
                     if cursor.fetchone() is None:
-                        raise Exception(
-                            f"Datacenter with name {dc_name} does not exist"
-                        )
+                        return False
                     query_parts.append("dc_name = %s")
                     update_params.append(dc_name)
 
