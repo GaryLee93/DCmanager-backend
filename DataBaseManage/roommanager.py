@@ -79,7 +79,7 @@ class RoomManager(BaseManager):
                 room_data = cursor.fetchone()
 
                 if room_data is None:
-                    raise Exception(f"Room with name {room_name} not found")
+                    return None
 
 
                 # Get full rack information for this room
