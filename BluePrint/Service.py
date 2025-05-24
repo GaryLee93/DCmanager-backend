@@ -12,7 +12,7 @@ def AddService():
     Add a new service.
 
     Params:
-        name, n_allocated_racks, allocated_subnet, username
+        name, n_allocated_racks, allocated_subnets, username
 
     Response:
         Datacenter ID
@@ -21,11 +21,11 @@ def AddService():
 
     name = data.get("name")
     n_allocated_racks = data.get("n_allocated_racks")
-    allocated_subnet = data.get("allocated_subnet")
+    allocated_subnets = data.get("allocated_subnets")
     username = data.get("username")
 
     new_service = Service_Manager.createService(
-        name, n_allocated_racks, allocated_subnet, username
+        name, n_allocated_racks, allocated_subnets, username
     )
 
     if not new_service:

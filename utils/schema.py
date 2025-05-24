@@ -101,7 +101,7 @@ class SimpleService:
 
 class UserRole(Enum):
     NORMAL = "normal"
-    MANAGER = "manager"
+    ADMIN  = "admin"
 
 
 @dataclass
