@@ -3,6 +3,7 @@ from DataBaseManage import *
 from utils import schema
 import uuid
 from dataclasses import asdict
+from .Rack import Rack_Manager
 
 Host_Manager = HostManager()
 HOST_BLUEPRINT = Blueprint("host", __name__)
@@ -69,6 +70,12 @@ def ModifyHost(host_name):
     running = data.get("running")
     rack_name = data.get("rack_name")
     pos = data.get("pos")
+
+    if not Host_Manager.getHost(host_name):
+        return jsonify({"error": "Host not found"}), 404
+
+    if rack_name and not Rack_Manager.getRack(rack_name):
+        return jsonify({"error": "Destination rack not found"}), 404
 
     result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     if result == False:
