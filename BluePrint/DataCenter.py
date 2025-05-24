@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from dataclasses import asdict
-from .Room import DeleteRoom
+from .Room import DeleteRoom, ModifyRoom
 
 DC_manager = DatacenterManager()
 
@@ -10,8 +10,8 @@ DATA_CENTER_BLUEPRINT = Blueprint("dc", __name__)
 @DATA_CENTER_BLUEPRINT.route("/", methods=["POST"])
 def AddNewDC():
     data = request.get_json()
-    name = str(data.get("name"))
-    height = int(data.get("height"))
+    name = data.get("name")
+    height = data.get("height")
     if DC_manager.getDatacenter(name) != None:
         return jsonify({"error":"DataCenter Already Exists"}), 400
     dc = DC_manager.createDatacenter(name, height)
@@ -31,23 +31,27 @@ def ProcessDC(dc_name):
         return DeleteDC(dc_name)
     data = request.get_json()
     if request.method == 'PUT':
-        name = str(data.get('name'))
-        height = int(data.get('height'))
+        name = data.get('name')
+        height = data.get('height')
         return ModifyDC(dc_name, name, height)
     return jsonify({"error":"Invalid Method"}), 405
 
 def GetDC(dc_name):
-    dataCenter = DC_manager.getDatacenter(dc_name)  
+    dataCenter = DC_manager.getDatacenter(dc_name)
     if dataCenter == None:
         return jsonify({"error":"DataCenter Not Found"}), 404
     else:
         return jsonify(asdict(dataCenter)), 200
 
 def ModifyDC(dc_name, name, height):
-    if(DC_manager.getDatacenter(dc_name) == None):
+    dc = DC_manager.getDatacenter(dc_name)
+    if dc == None:
         return jsonify({"error":"DataCenter Not Found"}), 404
+    for room in dc.rooms:
+        if not ModifyRoom(room.name, room.name, room.height, name):
+            return jsonify({"error":"Room Update Failed"}), 500
     if not DC_manager.updateDatacenter(dc_name, name, height):
-        return jsonify({"error":"Update Failed"}), 500
+        return jsonify({"error":"Datacenter Update Failed"}), 500
     return Response(status = 200)
 
 def DeleteDC(dc_name):

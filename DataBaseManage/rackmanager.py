@@ -31,7 +31,7 @@ class RackManager(BaseManager):
                 room_data = cursor.fetchone()
 
                 if room_data is None:
-                    raise Exception(f"Room with name {room_name} does not exist")
+                    return None
 
                 new_rack = Rack(
                     name=name,
@@ -118,11 +118,6 @@ class RackManager(BaseManager):
                 already_used = sum(host.height for host in hosts)
                 # Calculate the remaining capacity
                 capacity = result["height"] - already_used
-                # Check if the rack is full
-                if capacity < 0:
-                    raise Exception(
-                        f"Rack {rack_name} is over capacity. Used: {already_used}, Capacity: {result['height']}"
-                    )
 
                 # Create and return the Rack object
                 return Rack(
@@ -185,7 +180,7 @@ class RackManager(BaseManager):
                         "SELECT name FROM rooms WHERE name = %s", (room_name,)
                     )
                     if cursor.fetchone() is None:
-                        raise Exception(f"Room with ID {room_name} does not exist")
+                       return False
                     query_parts.append("room_name = %s")
                     update_params.append(room_name)
 
@@ -235,19 +230,6 @@ class RackManager(BaseManager):
 
                 if rack_info is None:
                     return False
-
-                # Check if rack has any hosts (optional: prevent deletion if it has dependencies)
-                cursor.execute(
-                    "SELECT COUNT(*) FROM hosts WHERE rack_name = %s", (rack_name,)
-                )
-                host_count = cursor.fetchone()["count"]
-
-                if host_count > 0:
-                    # You may want to raise a custom exception here instead
-                    # to indicate that the rack has dependencies
-                    raise Exception(
-                        f"Cannot delete rack named {rack_name} because it contains {host_count} hosts"
-                    )
 
                 # Delete the rack
                 cursor.execute("DELETE FROM racks WHERE name = %s", (rack_name,))

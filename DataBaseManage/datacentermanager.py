@@ -283,17 +283,6 @@ class DatacenterManager(BaseManager):
                 if cursor.fetchone() is None:
                     return False
 
-                # Check if datacenter has any rooms
-                cursor.execute(
-                    "SELECT COUNT(*) FROM rooms WHERE name = %s", (datacenter_name,)
-                )
-                room_count = cursor.fetchone()["count"]
-
-                if room_count > 0:
-                    raise Exception(
-                        f"Cannot delete datacenter with ID {datacenter_name} because it contains {room_count} rooms"
-                    )
-
                 # Delete the datacenter
                 cursor.execute(
                     "DELETE FROM datacenters WHERE name = %s", (datacenter_name,)

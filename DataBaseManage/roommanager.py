@@ -27,9 +27,7 @@ class RoomManager(BaseManager):
                 )
                 dc_data = cursor.fetchone()
                 if dc_data is None:
-                    raise Exception(
-                        f"Datacenter named {datacenter_name} does not exist"
-                    )
+                    return None
 
                 new_room = Room(
                     name=name,
@@ -79,7 +77,7 @@ class RoomManager(BaseManager):
                 room_data = cursor.fetchone()
 
                 if room_data is None:
-                    raise Exception(f"Room with name {room_name} not found")
+                    return None
 
 
                 # Get full rack information for this room
@@ -114,7 +112,7 @@ class RoomManager(BaseManager):
                     "SELECT COUNT(*) FROM hosts WHERE room_name = %s", (room_name,)
                 )
                 result = cursor.fetchone()
-                n_hosts = result[0] if result else 0
+                n_hosts = result["count"] if result else 0
                 # Create and return the Room object
                 return Room(
                     name=room_data["name"],
@@ -177,9 +175,7 @@ class RoomManager(BaseManager):
                         "SELECT name FROM datacenters WHERE name = %s", (dc_name,)
                     )
                     if cursor.fetchone() is None:
-                        raise Exception(
-                            f"Datacenter with name {dc_name} does not exist"
-                        )
+                        return False
                     query_parts.append("dc_name = %s")
                     update_params.append(dc_name)
 
