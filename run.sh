@@ -5,11 +5,11 @@ docker network create dcmanager-network 2>/dev/null || true
 
 echo "Building database image..."
 cd db
-docker build -t dcmanager-db .
+docker buildx build -t dcmanager-db .
 
 echo "Building backend image..."
 cd ..
-docker build -t dcmanager-backend .
+docker buildx build -t dcmanager-backend .
 
 echo "Build complete!"
 
