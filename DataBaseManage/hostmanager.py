@@ -32,7 +32,7 @@ class HostManager(BaseManager):
                 )
                 rack_data = cursor.fetchone()
                 if rack_data is None:
-                    raise Exception(f"Rack with Name {rack_name} does not exist")
+                    return None
 
                 # Get an available IP of service
                 cursor.execute(
@@ -218,9 +218,7 @@ class HostManager(BaseManager):
                     new_rack_data = cursor.fetchone()
 
                     if new_rack_data is None:
-                        raise Exception(
-                            f"Rack with name {new_rack_name} does not exist"
-                        )
+                        return False
 
                     new_room_name = new_rack_data["room_name"]
 
