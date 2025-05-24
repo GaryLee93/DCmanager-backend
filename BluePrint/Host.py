@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from utils import schema
 import uuid
@@ -48,7 +48,7 @@ def GetAllHost():
 def GetHost(host_name):
     host = Host_Manager.getHost(host_name)
     if not host:
-        return "Host not found", 404
+        return jsonify({"error": "Host not found"}), 404
 
     return jsonify(asdict(host)), 200
 
@@ -72,15 +72,15 @@ def ModifyHost(host_name):
 
     result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     if result == False:
-        return "Failed to update host", 500
+        return jsonify({"error": "Failed to update host"}), 500
     else:
-        return "Host modified successfully!", 200
+        return Response(status = 200)
 
 
 @HOST_BLUEPRINT.route("/<host_id>", methods=["DELETE"])
 def DeleteHost(host_id):
     result = Host_Manager.deleteHost(host_id)
     if result == False:
-        return "Failed to delete host", 500
+        return jsonify({"error": "Failed to delete host"}), 500
     else:
-        return "Host deleted successfully!", 200
+        return Response(status = 200)
