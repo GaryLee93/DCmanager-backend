@@ -20,16 +20,17 @@ def AddRoom():
 
 @ROOM_BLUEPRINT.route('/<room_name>', methods=['GET', 'PUT', 'DELETE'])
 def ProcessRoom(room_name):
-    data = request.get_json()
     if request.method == 'GET':
         return GetRoom(room_name)
-    elif request.method == 'PUT':
+    if request.method == 'DELETE':
+        return DeleteRoom(room_name)
+    data = request.get_json()
+    if request.method == 'PUT':
         name = str(data.get('name'))
         height = int(data.get('height'))
         dc_name = str(data.get('dc_name'))
         return ModifyRoom(room_name, name, height, dc_name)
-    elif request.method == 'DELETE':
-        return DeleteRoom(room_name)
+    return jsonify({"error": "Invalid Method"}), 400
 
 def GetRoom(room_name):
     room = Room_Manager.getRoom(room_name)

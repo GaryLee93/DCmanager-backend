@@ -8,7 +8,7 @@ DB_CONFIG = {
     "user": os.environ.get("DB_USER", "postgres"),
     "password": os.environ.get("DB_PASSWORD", "postgres"),
     "host": os.environ.get("DB_HOST", "localhost"),
-    "port": int(os.environ.get("DB_PORT", "5432")),
+    "port": int(os.environ.get("DB_PORT", "5433")),
 }
 
 # Create a connection pool
