@@ -8,7 +8,7 @@ RACK_BLUEPRINT = Blueprint("rack", __name__)
 
 
 @RACK_BLUEPRINT.route("/", methods=["POST"])
-def AddRack():
+def AddNewRack():
     """
     Add a new host.
 
@@ -22,9 +22,9 @@ def AddRack():
     name = str(data.get("name"))
     height = int(data.get("height"))
     room_name = str(data.get("room_name"))
-
+    if Rack_Manager.getRack(name) != None:
+        return jsonify({"error": "Rack Already Exists"}), 400
     rack = Rack_Manager.createRack(name, height, room_name)
-
     return jsonify(asdict(rack)), 200
 
 
@@ -40,27 +40,29 @@ def ProcessRack(rack_name):
         height = int(data.get('height'))
         room_name = str(data.get('room_name'))
         return ModifyRack(rack_name, name, height, room_name)
-    return jsonify({"error": "Invalid Method"}), 400
+    return jsonify({"error": "Invalid Method"}), 405
 
 def GetRack(rack_name):
     rack = Rack_Manager.getRack(rack_name)
     if rack == None:
-        return Response(status = 404)
+        return jsonify({"error": "Rack Not Found"}), 404
     else:
         return jsonify(asdict(rack)), 200
 
 # database can't update room_id
 def ModifyRack(rack_name, name, height, room_name):
     if Rack_Manager.getRack(rack_name) == None:
-        return Response(status = 404)
-    else:
-        Rack_Manager.updateRack(rack_name, name, height, room_name)
-        return Response(status = 200)
+        return jsonify({"error": "Rack Not Found"}), 404
+    if not Rack_Manager.updateRack(rack_name, name, height, room_name):
+        return jsonify({"error": "Update Failed"}), 500
+    return Response(status = 200)
 
 def DeleteRack(rack_name):
     rack = Rack_Manager.getRack(rack_name)
     if rack == None:
-        return Response(status = 404)
+        return jsonify({"error": "Rack Not Found"}), 404
     for host in rack.hosts:
         DeleteHost(host.name)
-    Rack_Manager.deleteRack(rack_name)
+    if not Rack_Manager.deleteRack(rack_name):
+        return jsonify({"error": "Delete Failed"}), 500
+    return Response(status=200)

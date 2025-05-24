@@ -50,10 +50,22 @@ def assert_data_center(dc: json, dc_returned: DataCenter):
 #Test AddNewDC
 def test_AddNewDC(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
     data = {'name': 'Test_DC', 'height': 10}
+    mock_db_manager.getDatacenter.return_value = None
+    mock_db_manager.createDatacenter.return_value = DataCenter(name = data['name'], height = data['height'], n_rooms = 0, rooms = [], n_racks = 0, n_hosts = 0)
     response = client.post("/dc/", json = data)
-    assert response.status_code == 200
     mock_db_manager.createDatacenter.assert_called_once_with(data['name'], data['height'])
+    assert response.status_code == 200
+    assert response.json['name'] == data['name']
+    assert response.json['height'] == data['height']
     
+def test_AddNewDC_already_exists(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
+    data = {'name': 'Test_DC', 'height': 10}
+    mock_db_manager.getDatacenter.return_value = DataCenter(name = data['name'], height = data['height'], n_rooms = 0, rooms = [], n_racks = 0, n_hosts = 0)
+    response = client.post("/dc/", json = data)
+    assert response.status_code == 400
+    assert response.json['error'] == 'DataCenter Already Exists'
+    mock_db_manager.createDatacenter.assert_not_called()
+
 def test_add_new_dc_invalid_json(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
     response = client.post("/dc/", data="not json", content_type="text/plain")
 
@@ -82,7 +94,7 @@ def test_GetAllDC(client: testing.FlaskClient, mock_db_manager: DatacenterManage
     assert_simple_data_center(data[2], fake_dc_3)
 
 #Test GetDC
-def test_GetDC(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
+def test_GetDC_found(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
     fake_dc = DataCenter(name='Test_DC', height=10, n_rooms=1, rooms = [
         SimpleRoom(name='Room1', height=10, n_racks=5, n_hosts=20, dc_name='Test_DC'),], 
         n_racks=5, n_hosts=20)
@@ -95,9 +107,9 @@ def test_GetDC(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
 def test_GetDC_not_found(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
     mock_db_manager.getDatacenter.return_value = None
     response = client.get("/dc/Non_Existent_DC")
+    mock_db_manager.getDatacenter.assert_called_once_with('Non_Existent_DC')
     assert response.status_code == 404
-    data = json.loads(response.data)
-    assert data['error'] == 'Data Center Not Found'
+    assert response.json['error'] == 'DataCenter Not Found'
 
 #Test ModifyDC
 def test_ModifyDC_success(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
@@ -114,24 +126,28 @@ def test_ModifyDC_success(client: testing.FlaskClient, mock_db_manager: Datacent
 def test_ModifyDC_not_found(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
     mock_db_manager.getDatacenter.return_value = None
     data = {'name': 'New_Test_DC', 'height': 15}
+
     response = client.put("/dc/Non_Existent_DC", json=data)
-    assert response.status_code == 404
     mock_db_manager.getDatacenter.assert_called_once_with('Non_Existent_DC')
     mock_db_manager.updateDatacenter.assert_not_called()
+    assert response.status_code == 404
+    assert response.json['error'] == 'DataCenter Not Found'
 
-def test_MOdifyDC_update_failure(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
+def test_MOdifyDC_failure(client: testing.FlaskClient, mock_db_manager: DatacenterManager):
     fake_dc = DataCenter(name='Test_DC', height=10, n_rooms=1, rooms = [
         SimpleRoom(name='Room1', height=10, n_racks=5, n_hosts=20, dc_name='Test_DC')],
         n_racks=5, n_hosts=20)
     mock_db_manager.getDatacenter.return_value = fake_dc
     mock_db_manager.updateDatacenter.return_value = False
     data = {'name': 'New_Test_DC', 'height': 15}
+
     response = client.put("/dc/Test_DC", json=data)
-    assert response.status_code == 400
     mock_db_manager.updateDatacenter.assert_called_once_with('Test_DC', data['name'], data['height'])
+    mock_db_manager.getDatacenter.assert_called_once_with('Test_DC')
+    assert response.status_code == 500
+    assert response.json['error'] == 'Update Failed'
 
 #Test DeleteDC
-
 def test_DeleteDC_success_no_rooms(client: testing.FlaskClient, mock_db_manager: DatacenterManager, mock_delete_room):
     fake_dc = DataCenter(name='Test_DC', height=10, n_rooms=0, rooms=[], n_racks=0, n_hosts=0)
     mock_db_manager.getDatacenter.return_value = fake_dc
@@ -156,7 +172,8 @@ def test_DeleteDC_success_with_rooms(client: testing.FlaskClient, mock_db_manage
 def test_DeleteDC_not_found(client: testing.FlaskClient, mock_db_manager: DatacenterManager, mock_delete_room):
     mock_db_manager.getDatacenter.return_value = None
     response = client.delete("/dc/Non_Existent_DC")
-    assert response.status_code == 404
     mock_db_manager.getDatacenter.assert_called_once_with('Non_Existent_DC')
     mock_delete_room.assert_not_called()
     mock_db_manager.deleteDatacenter.assert_not_called()
+    assert response.status_code == 404
+    assert response.json['error'] == 'DataCenter Not Found'
