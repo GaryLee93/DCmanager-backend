@@ -47,14 +47,16 @@ class HostManager(BaseManager):
                         "UPDATE IPs SET assigned = TRUE WHERE ip = %s",
                         (ip_value,),
                     )
+                    running = True
                 else:
-                    raise ValueError("No available IPs for the service")
+                    ip_value = None
+                    running = False  
 
                 new_host = Host(
                     name=name,
                     height=height,
                     ip=ip_value,
-                    running=True,
+                    running=running,
                     service_name=rack_data["service_name"],
                     dc_name=rack_data["dc_name"],
                     room_name=rack_data["room_name"],
