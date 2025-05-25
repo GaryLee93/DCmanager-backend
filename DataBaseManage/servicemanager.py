@@ -659,6 +659,13 @@ class ServiceManager(BaseManager):
                     raise Exception(f"Subnet {new_subnet} already exists in the database")
                 ip_list = self.subnet_to_iplist(new_subnet)
 
+                # debug: print all ips
+                cursor.excute(
+                    "SELECT * FROM IPs WHERE service_name = %s", (service_name,)
+                )
+                print("All IPs in the service:", cursor.fetchall())
+                print("New IPs to be added:", ip_list)
+                
                 # Find existing IPs in the database
                 cursor.execute(
                     "SELECT * FROM IPs WHERE ip::text = ANY(%s)", (ip_list,)
