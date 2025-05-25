@@ -3,7 +3,7 @@ from DataBaseManage import *
 from dataclasses import asdict
 from .Rack import DeleteRack, ModifyRack
 
-DC_manager = DatacenterManager()
+DC_Manager = DatacenterManager()
 Room_Manager = RoomManager()
 ROOM_BLUEPRINT = Blueprint("room", __name__)
 
@@ -16,7 +16,7 @@ def AddNewRoom():
     dc_name = data.get("dc_name")
     if Room_Manager.getRoom(name) != None:
         return jsonify({"error": "Room Already Exists"}), 400
-    if not DC_manager.getDatacenter(dc_name):
+    if not DC_Manager.getDatacenter(dc_name):
         return jsonify({"error": "Datacenter Not Found"}), 404
     room = Room_Manager.createRoom(name, height, dc_name)
     return jsonify(asdict(room)), 200
@@ -47,7 +47,7 @@ def ModifyRoom(room_name, new_name, height, dc_name):
     room = Room_Manager.getRoom(room_name)
     if room == None:
         return jsonify({"error": "Room Not Found"}), 404
-    if dc_name and not DC_manager.getDatacenter(dc_name):
+    if dc_name and not DC_Manager.getDatacenter(dc_name):
         return jsonify({"error": "Datacenter Not Found"}), 404
     if not Room_Manager.updateRoom(room_name, new_name, height, dc_name):
         return jsonify({"error": "Room Update Failed"}), 500

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from .Host import DeleteHost, ModifyHost
+from .Host import DeleteHost
 from dataclasses import asdict
 from utils.schema import Rack
 
