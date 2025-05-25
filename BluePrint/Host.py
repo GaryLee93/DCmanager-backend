@@ -28,9 +28,8 @@ def AddHost():
     pos = data.get("pos")
 
     # Check if host already exists
-    existing_host = Host_Manager.getHost(name)
-    if existing_host is not None:
-        return "Host already exists", 400
+    if Host_Manager.getHost(name) is not None:
+        return jsonify({"error": "Host already exists"}), 400
 
     new_host = Host_Manager.createHost(
         name,
@@ -40,7 +39,7 @@ def AddHost():
     )
 
     if new_host is None:
-        return "Failed to create host", 500
+        return jsonify({"error": "Failed to create host"}), 500
 
     return jsonify(asdict(new_host)), 200
 
@@ -81,31 +80,21 @@ def ModifyHost(host_name, name, height, running, rack_name, pos):
     Params:
         name, height, running, rack_name, pos
     """
+    # Check if host exists first
     if not Host_Manager.getHost(host_name):
         return jsonify({"error": "Host not found"}), 404
 
     if rack_name and not Rack_Manager.getRack(rack_name):
         return jsonify({"error": "Destination rack not found"}), 404
 
-    # Check if host exists first
-    host = Host_Manager.getHost(host_name)
-    if not host:
-        return "Host not found", 404
-
     result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     if result == False:
-        return "Update Failed", 500
-      
-    updated_host = Host_Manager.getHost(name if name else host_name)
-    if updated_host:
-        return jsonify(asdict(updated_host)), 200
-    else:
-        return "Update Failed", 500
+        return jsonify({"error": "Update Failed"}), 500
 
-@HOST_BLUEPRINT.route("/<host_name>", methods=["DELETE"])
+    return Response(status=200)
+
 def DeleteHost(host_name):
-    host = Host_Manager.getHost(host_name)
-    if host == None:
+    if Host_Manager.getHost(host_name) == None:
         return jsonify({"error": "Host Not Found"}), 404
     if not Host_Manager.deleteHost(host_name):
         return jsonify({"error": "Delete Failed"}), 500

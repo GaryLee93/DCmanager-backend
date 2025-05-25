@@ -21,7 +21,7 @@ def Login():
             "role": user.role.value
         })
     else:
-        return jsonify({"error": "Invalid credentials"}), 400
+        return jsonify({"error": "Invalid username or password"}), 400
 
 
 @AUTH_BLUEPRINT.route("/register", methods=["POST"])
@@ -35,7 +35,7 @@ def Register():
 
     # Check if username already exists
     if User_Manager.getUser(username=username):
-        return jsonify({"error": "Username already exists"}), 400
+        return jsonify({"error": "Username Already Exists"}), 400
 
     try:
         user = User_Manager.createUser(username, password, role)
