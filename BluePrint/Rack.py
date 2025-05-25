@@ -82,7 +82,7 @@ def ModifyRack(rack_name, new_rack_name, height, room_name, service_name):
     if service_name != rack.service_name:
         Service_Manager.assignRackToService(new_rack_name, service_name)
     for host in rack.hosts:
-        if not Host_Manager.updateHost(host.name, host.name, host.height, host.running, room_name, host.pos, service_name):
+        if not Host_Manager.updateHost(host.name, None, None, None, new_rack_name, None):
             return jsonify({"error": "Host Update Failed"}), 500
     return Response(status = 200)
 
