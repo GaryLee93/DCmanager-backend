@@ -305,6 +305,13 @@ class HostManager(BaseManager):
 
                 # Delete the host
                 cursor.execute("DELETE FROM hosts WHERE name = %s", (host_name,))
+
+                # If the host had an IP, mark it as unassigned
+                if host_data["ip"] is not None:
+                    cursor.execute(
+                        "UPDATE IPs SET assigned = FALSE WHERE ip = %s",
+                        (host_data["ip"],),
+                    )
                 conn.commit()
 
                 # Check if any rows were affected
