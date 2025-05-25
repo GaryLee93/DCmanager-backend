@@ -48,7 +48,7 @@ class HostManager(BaseManager):
                         (ip_value,),
                     )
                 else:
-                    ip_value = None
+                    raise ValueError("No available IPs for the service")
 
                 new_host = Host(
                     name=name,
@@ -303,6 +303,8 @@ class HostManager(BaseManager):
                             "UPDATE hosts SET ip = %s WHERE name = %s",
                             (new_ip_value, host_name),
                         )
+                    else:
+                        raise ValueError("No available IPs for the service")
 
                 conn.commit()
 

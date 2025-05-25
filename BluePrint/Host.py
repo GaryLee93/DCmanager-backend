@@ -30,13 +30,15 @@ def AddHost():
     # Check if host already exists
     if Host_Manager.getHost(name) is not None:
         return jsonify({"error": "Host already exists"}), 400
-
-    new_host = Host_Manager.createHost(
-        name,
-        height,
-        rack_name,
-        pos,
-    )
+    try:
+        new_host = Host_Manager.createHost(
+            name,
+            height,
+            rack_name,
+            pos,
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
     if new_host is None:
         return jsonify({"error": "Failed to create host"}), 500
@@ -86,11 +88,12 @@ def ModifyHost(host_name, name, height, running, rack_name, pos):
 
     if rack_name and not Rack_Manager.getRack(rack_name):
         return jsonify({"error": "Destination rack not found"}), 404
-
-    result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
-    if result == False:
-        return jsonify({"error": "Update Failed"}), 500
-
+    try:
+        result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    if not result:
+        return jsonify({"error": "Failed to update host"}), 500
     return Response(status=200)
 
 def DeleteHost(host_name):
