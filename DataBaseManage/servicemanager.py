@@ -722,7 +722,7 @@ class ServiceManager(BaseManager):
                 )
                 if cursor.fetchone() is None:
                     return False
-
+        
                 # Check if rack exists
                 cursor.execute("SELECT name FROM racks WHERE name = %s", (rack_name,))
                 if cursor.fetchone() is None:
@@ -736,7 +736,16 @@ class ServiceManager(BaseManager):
                 if result is not None and result[0] is not None:
                     # Rack is already assigned to a service
                     return False
-
+                # check rack don't have any hosts assigned to it
+                cursor.execute(
+                    "SELECT COUNT(*) FROM hosts WHERE rack_name = %s", (rack_name,)
+                )
+                host_count = cursor.fetchone()[0]
+                if host_count > 0:
+                    # Rack has hosts assigned to it, cannot assign to service
+                    raise Exception(
+                        f"Rack {rack_name} has hosts assigned to it, cannot assign to service {service_name}"
+                    )
                 # Assign the rack to the service
                 cursor.execute(
                     "UPDATE racks SET service_name = %s WHERE name = %s",
