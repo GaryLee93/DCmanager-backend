@@ -246,8 +246,8 @@ class DatacenterManager(BaseManager):
                     query_parts.append("updated_at = CURRENT_TIMESTAMP")
 
                     # Build and execute update query
-                    query = f"UPDATE datacenters SET {', '.join(query_parts)} WHERE name = %s RETURNING *"
-                    update_params.append(new_name)
+                    query = f"UPDATE datacenters SET {', '.join(query_parts)} WHERE name = %s"
+                    update_params.append(old_name)
 
                     cursor.execute(query, update_params)
                     conn.commit()
