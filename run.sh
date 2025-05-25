@@ -24,7 +24,7 @@ echo "Starting database container..."
 docker run -d \
   --name dcmanager-db \
   --network dcmanager-network \
-  -p 5432:5432 \
+  -p 5433:5432 \
   -v dcmanager-db-data:/var/lib/postgresql/data \
   dcmanager-db
 
@@ -45,7 +45,7 @@ docker run -d \
 
 echo "Containers started!"
 echo "Backend available at: http://localhost:5000"
-echo "Database available at: localhost:5432"
+echo "Database available at: localhost:5433"
 echo ""
 echo "To view logs:"
 echo "  docker logs dcmanager-backend"

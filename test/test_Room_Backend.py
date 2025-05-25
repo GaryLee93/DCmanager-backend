@@ -13,7 +13,7 @@ def client():
     with test_app.test_client() as client:
         yield client
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_dc_manager():
     with patch('BluePrint.Room.DC_Manager') as mock:
         yield mock
