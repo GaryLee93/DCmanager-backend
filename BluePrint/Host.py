@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from utils import schema
-import uuid
 from dataclasses import asdict
+import traceback
 
 Rack_Manager = RackManager()
 Host_Manager = HostManager()
@@ -38,6 +37,7 @@ def AddHost():
             pos,
         )
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
     if new_host is None:
@@ -91,6 +91,7 @@ def ModifyHost(host_name, name, height, running, rack_name, pos):
     try:
         result = Host_Manager.updateHost(host_name, name, height, running, rack_name, pos)
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     if not result:
         return jsonify({"error": "Failed to update host"}), 500
