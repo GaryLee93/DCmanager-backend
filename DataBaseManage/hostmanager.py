@@ -48,7 +48,7 @@ class HostManager(BaseManager):
                         (ip_value,),
                     )
                 else:
-                    ip_value = None  
+                    ip_value = None
 
                 new_host = Host(
                     name=name,
@@ -277,7 +277,7 @@ class HostManager(BaseManager):
                         "UPDATE IPs SET assigned = FALSE WHERE ip = (SELECT ip FROM hosts WHERE name = %s)",
                         (host_name,),
                     )
-                    
+
                 conn.commit()
 
                 # Check if any rows were affected
@@ -308,7 +308,7 @@ class HostManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if host exists
                 cursor.execute(
-                    "SELECT name, rack_name, room_name, dc_name FROM hosts WHERE name = %s",
+                    "SELECT name, rack_name, room_name, dc_name, ip FROM hosts WHERE name = %s",
                     (host_name,),
                 )
                 host_data = cursor.fetchone()
