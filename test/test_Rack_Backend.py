@@ -13,7 +13,7 @@ def client():
     with test_app.test_client() as client:
         yield client
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_room_manager():
     with patch('BluePrint.Rack.Room_Manager') as mock:
         yield mock
@@ -22,6 +22,7 @@ def mock_room_manager():
 def mock_rack_manager():
     with patch('BluePrint.Rack.Rack_Manager') as mock:
         yield mock
+
 @pytest.fixture
 def mock_host_manager():
     with patch('BluePrint.Rack.Host_Manager') as mock:
