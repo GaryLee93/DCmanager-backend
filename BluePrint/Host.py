@@ -3,8 +3,8 @@ from DataBaseManage import *
 from utils import schema
 import uuid
 from dataclasses import asdict
-from .Rack import Rack_Manager
 
+Rack_Manager = RackManager()
 Host_Manager = HostManager()
 HOST_BLUEPRINT = Blueprint("host", __name__)
 

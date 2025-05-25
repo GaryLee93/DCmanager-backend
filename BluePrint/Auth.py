@@ -18,7 +18,7 @@ def Login():
     if user:
         return jsonify({
             "username": user.username,
-            "role": user.role.value
+            "role": user.role
         })
     else:
         return jsonify({"error": "Invalid username or password"}), 400
@@ -41,7 +41,7 @@ def Register():
         user = User_Manager.createUser(username, password, role)
         return jsonify({
             "username": user.username,
-            "role": user.role.value
+            "role": user.role
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

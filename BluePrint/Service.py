@@ -24,13 +24,16 @@ def AddService():
     allocated_subnets = data.get("allocated_subnets")
     username = data.get("username")
 
-    # Check if host already exists
+    # Check if service already exists
     if Service_Manager.getService(name) is not None:
         return jsonify({"error": "Service already exists"}), 400
 
-    new_service = Service_Manager.createService(
-        name, n_allocated_racks, allocated_subnets, username
-    )
+    try:
+        new_service = Service_Manager.createService(
+            name, n_allocated_racks, allocated_subnets, username
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
     if not new_service:
         return jsonify({"error": "Failed to create service"}), 500
@@ -71,8 +74,11 @@ def ProcessRoom(service_name):
         if not name or not isinstance(n_allocated_racks, dict) or not isinstance(allocated_subnets, list):
             return jsonify({"error": "Invalid input"}), 400
 
-        if not Service_Manager.updateService(service_name, name, n_allocated_racks, allocated_subnets):
-            return jsonify({"error": "Modification Failed"}), 500
+        try:
+            if not Service_Manager.updateService(service_name, name, n_allocated_racks, allocated_subnets):
+                return jsonify({"error": "Modification Failed"}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
         return Response(status=200)
 

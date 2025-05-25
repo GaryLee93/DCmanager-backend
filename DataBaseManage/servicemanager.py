@@ -54,7 +54,7 @@ class ServiceManager(BaseManager):
                 )
                 user_data = cursor.fetchone()
                 if user_data is None:
-                    return None  # User does not exist
+                    raise Exception(f"User {username} does not exist")
                 
                 # Insert the new service
                 cursor.execute(
@@ -81,7 +81,7 @@ class ServiceManager(BaseManager):
                     )
                     existing_subnet = cursor.fetchone()
                     if existing_subnet:
-                        return None  # Subnet already exists
+                        raise Exception(f"Subnet {allocated_subnet} already exists in the database")
                     ip_list = self.subnet_to_iplist(allocated_subnet)
 
                     # Find existing IPs in the database
@@ -131,7 +131,7 @@ class ServiceManager(BaseManager):
                     )
                     dc_data = cursor.fetchone()
                     if dc_data is None:
-                        return None  # Datacenter does not exist
+                        raise Exception(f"Datacenter named {dc_name} does not exist")
 
                     # Find {n_racks} racks that are not assigned to any service in this DC
                     cursor.execute(
@@ -144,6 +144,10 @@ class ServiceManager(BaseManager):
                     )
                     racks_data = cursor.fetchall()
 
+                    if len(racks_data) < n_racks:
+                        raise Exception(
+                            f"Not enough available racks in datacenter {dc_name} to assign to service {name}"
+                        )
 
                     # Assign racks to the service
                     assigned_racks = []
@@ -517,7 +521,7 @@ class ServiceManager(BaseManager):
                             (dc_name,)
                         )
                         if cursor.fetchone() is None:
-                            return None
+                            raise Exception(f"Datacenter {dc_name} does not exist")
                         
                         # Find available racks in this datacenter
                         cursor.execute(
@@ -529,7 +533,10 @@ class ServiceManager(BaseManager):
                             (dc_name, n_racks)
                         )
                         available_racks = cursor.fetchall()
-                                                
+                        
+                        if len(available_racks) < n_racks:
+                            raise Exception(f"Not enough available racks in datacenter {dc_name}")
+                        
                         # Assign new racks to this service
                         for rack in available_racks:
                             cursor.execute(
@@ -640,14 +647,14 @@ class ServiceManager(BaseManager):
                 try:
                     ipaddress.ip_network(new_subnet, strict=True)
                 except ValueError:
-                    return None  # Invalid subnet format
+                    raise Exception(f"Invalid subnet: {new_subnet}")
                 # Check if subnet already exists in the database
                 cursor.execute(
                     "SELECT * FROM subnets WHERE subnet = %s", (new_subnet,)
                 )
                 existing_subnet = cursor.fetchone()
                 if existing_subnet:
-                    return None  # Subnet already exists
+                    raise Exception(f"Subnet {new_subnet} already exists in the database")
                 ip_list = self.subnet_to_iplist(new_subnet)
 
                 # Find existing IPs in the database
@@ -656,7 +663,9 @@ class ServiceManager(BaseManager):
                 )
                 existing_ips = cursor.fetchall()
                 if existing_ips:
-                    return None  # IP addresses already exist in the database
+                    raise Exception(
+                        f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
+                    )
                 
                 # Insert the new subnet into the subnets table
                 cursor.execute(
