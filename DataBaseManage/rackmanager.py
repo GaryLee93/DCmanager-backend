@@ -185,6 +185,7 @@ class RackManager(BaseManager):
                        return False
 
                     new_dc_name = new_room_data["dc_name"]
+                    print(new_room_data)
 
                     query_parts.append("room_name = %s")
                     update_params.append(room_name)

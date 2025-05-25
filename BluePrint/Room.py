@@ -49,11 +49,11 @@ def ModifyRoom(room_name, new_name, height, dc_name):
         return jsonify({"error": "Room Not Found"}), 404
     if dc_name and not DC_manager.getDatacenter(dc_name):
         return jsonify({"error": "Datacenter Not Found"}), 404
+    if not Room_Manager.updateRoom(room_name, new_name, height, dc_name):
+        return jsonify({"error": "Room Update Failed"}), 500
     for rack in room.racks:
         if not ModifyRack(rack.name, rack.name, rack.height, new_name):
             return jsonify({"error": "Rack Update Failed"}), 500
-    if not Room_Manager.updateRoom(room_name, new_name, height, dc_name):
-        return jsonify({"error": "Room Update Failed"}), 500
     return Response(status = 200)
 
 def DeleteRoom(room_name):

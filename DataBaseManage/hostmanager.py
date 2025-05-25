@@ -211,7 +211,7 @@ class HostManager(BaseManager):
 
                 # Check if rack to be move to exists
                 new_room_name = None
-                if new_rack_name is not None and new_rack_name != current_rack_name:
+                if new_rack_name is not None:
                     cursor.execute(
                         "SELECT name, room_name, dc_name FROM racks WHERE name = %s",
                         (new_rack_name,),
@@ -223,6 +223,7 @@ class HostManager(BaseManager):
 
                     new_room_name = new_rack_data["room_name"]
                     new_dc_name   = new_rack_data["dc_name"]
+                    print(new_rack_data)
 
                 # Build the update query based on provided parameters
                 update_params = []
@@ -241,8 +242,9 @@ class HostManager(BaseManager):
                     update_params.append(new_running)
 
                 if new_rack_name is not None:
-                    query_parts.append("rack_name = %s")
-                    update_params.append(new_rack_name)
+                    if new_rack_name != current_rack_name:
+                        query_parts.append("rack_name = %s")
+                        update_params.append(new_rack_name)
 
                     if new_room_name != current_room_name:
                         query_parts.append("room_name = %s")

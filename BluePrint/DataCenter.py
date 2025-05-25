@@ -47,11 +47,11 @@ def ModifyDC(dc_name, name, height):
     dc = DC_manager.getDatacenter(dc_name)
     if dc == None:
         return jsonify({"error":"DataCenter Not Found"}), 404
+    if not DC_manager.updateDatacenter(dc_name, name, height):
+        return jsonify({"error":"Datacenter Update Failed"}), 500
     for room in dc.rooms:
         if not ModifyRoom(room.name, room.name, room.height, name):
             return jsonify({"error":"Room Update Failed"}), 500
-    if not DC_manager.updateDatacenter(dc_name, name, height):
-        return jsonify({"error":"Datacenter Update Failed"}), 500
     return Response(status = 200)
 
 def DeleteDC(dc_name):
