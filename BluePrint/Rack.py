@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
-from .Host import DeleteHost, ModifyHost
+from .Host import DeleteHost
 from dataclasses import asdict
 from utils.schema import Rack
 
@@ -60,10 +60,10 @@ def ModifyRack(rack_name, new_rack_name, height, room_name, service_name):
     rack = Rack_Manager.getRack(rack_name)
     if rack == None:
         return jsonify({"error": "Rack Not Found"}), 404
-    if new_name and Rack_Manager.getRack(new_name) and new_name != rack.name:
+    if new_rack_name and Rack_Manager.getRack(new_rack_name) and new_rack_name != rack.name:
         return jsonify({"error": "Rack Name Already Exists"}), 400
-    elif not new_name:
-        new_name = rack.name
+    elif not new_rack_name:
+        new_rack_name = rack.name
     if height and height <= 0:
         return jsonify({"error": "Invalid Rack Height"}), 400
     elif not height:
