@@ -649,8 +649,10 @@ class ServiceManager(BaseManager):
                 except ValueError:
                     raise Exception(f"Invalid subnet: {new_subnet}")
                 # Check if subnet already exists in the database
+                network = ipaddress.ip_network(new_subnet, strict=False)
+                standardized_subnet = str(network.supernet(new_prefix=network.prefixlen))
                 cursor.execute(
-                    "SELECT * FROM subnets WHERE subnet = %s", (new_subnet,)
+                    "SELECT * FROM subnets WHERE subnet = %s", (standardized_subnet,)
                 )
                 existing_subnet = cursor.fetchone()
                 if existing_subnet:
@@ -701,7 +703,7 @@ class ServiceManager(BaseManager):
             raise e
         finally:
             if conn:
-                self
+                self.release_connection(conn)
 
     def assignRackToService(self, service_name: str, rack_name: str) -> bool:
         """
