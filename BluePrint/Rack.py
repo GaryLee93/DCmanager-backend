@@ -4,6 +4,7 @@ from .Host import DeleteHost, ModifyHost
 from dataclasses import asdict
 from utils.schema import Rack
 
+Host_Manager = HostManager()
 Service_Manager = ServiceManager()
 Room_Manager = RoomManager()
 Rack_Manager = RackManager()
@@ -99,5 +100,5 @@ def ProcessParams(rack: Rack, new_name, height, room_name, service_name):
 
 def UpdateHostsInRack(rack: Rack, room_name, service_name):
     for host in rack.hosts:
-        if not ModifyHost(host.name, host.name, host.height, host.running, room_name, host.pos, service_name):
+        if not Host_Manager.updateHost(host.name, host.name, host.height, host.running, room_name, host.pos, service_name):
             return jsonify({"error": "Host Update Failed"}), 500
