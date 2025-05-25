@@ -127,4 +127,4 @@ def ProcessRoom(service_name):
             return jsonify({"error": "Delete Failed"}), 500
         return Response(status=200)
 
-    return jsonify({"error": "Method Not Allowed"}), 405
+    return Response(status=405)

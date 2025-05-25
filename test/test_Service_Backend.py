@@ -5,6 +5,7 @@ from flask import testing
 import pytest
 import json
 import app
+import re
 
 @pytest.fixture
 def client():
@@ -273,3 +274,103 @@ def test_ModifyService_no_data(client: testing.FlaskClient, mock_db_manager: Ser
     mock_db_manager.extendsubnet.assert_not_called()
     assert response.status_code == 400
 '''
+
+import re
+
+def test_AddService_duplicate_ip_error(client: testing.FlaskClient, mock_db_manager: ServiceManager):
+    data = {
+        'name': 'Test_Service',
+        'allocated_racks': {},
+        'allocated_subnets': [],
+        'username': 1
+    }
+    class DummyException(Exception):
+        pass
+    error_msg = "duplicate key value violates unique constraint \"some_constraint\" DETAIL:  Key (ip)=(10.0.0.1) already exists."
+    def raise_exc(*args, **kwargs):
+        raise DummyException(error_msg)
+    mock_db_manager.getService.return_value = None
+    mock_db_manager.createService.side_effect = raise_exc
+
+    response = client.post("/service/", json=data)
+    assert response.status_code == 500
+    assert "IP 10.0.0.1 already exists." in response.json["error"]
+
+def test_AddService_duplicate_ip_error_no_match(client: testing.FlaskClient, mock_db_manager: ServiceManager):
+    data = {
+        'name': 'Test_Service',
+        'allocated_racks': {},
+        'allocated_subnets': [],
+        'username': 1
+    }
+    class DummyException(Exception):
+        pass
+    error_msg = "duplicate key value violates unique constraint"
+    def raise_exc(*args, **kwargs):
+        raise DummyException(error_msg)
+    mock_db_manager.getService.return_value = None
+    mock_db_manager.createService.side_effect = raise_exc
+
+    response = client.post("/service/", json=data)
+    assert response.status_code == 500
+
+def test_AddService_generic_exception(client: testing.FlaskClient, mock_db_manager: ServiceManager):
+    data = {
+        'name': 'Test_Service',
+        'allocated_racks': {},
+        'allocated_subnets': [],
+        'username': 1
+    }
+    class DummyException(Exception):
+        pass
+    error_msg = "some other error"
+    def raise_exc(*args, **kwargs):
+        raise DummyException(error_msg)
+    mock_db_manager.getService.return_value = None
+    mock_db_manager.createService.side_effect = raise_exc
+
+    response = client.post("/service/", json=data)
+    assert response.status_code == 500
+
+def test_AddService_failed_to_create(client: testing.FlaskClient, mock_db_manager: ServiceManager):
+    data = {
+        'name': 'Test_Service',
+        'allocated_racks': {},
+        'allocated_subnets': [],
+        'username': 1
+    }
+    mock_db_manager.getService.return_value = None
+    mock_db_manager.createService.return_value = None
+
+    response = client.post("/service/", json=data)
+    assert response.status_code == 500
+
+def test_GetUserServices(client: testing.FlaskClient, mock_db_manager: ServiceManager):
+    user = "user1"
+    service1 = Service(
+        name="svc1",
+        allocated_racks={},
+        hosts=[],
+        username="user1",
+        allocated_subnets=[],
+        total_ip_list=[],
+        available_ip_list=[]
+    )
+    service2 = Service(
+        name="svc2",
+        allocated_racks={},
+        hosts=[],
+        username="other",
+        allocated_subnets=[],
+        total_ip_list=[],
+        available_ip_list=[]
+    )
+    mock_db_manager.getAllServices.return_value = [service1, service2]
+    response = client.get(f"/service/user/{user}")
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    assert response.json[0]["name"] == "svc1"
+
+def test_ProcessRoom_method_not_allowed(client: testing.FlaskClient):
+    response = client.open("/service/some_service", method="PATCH")
+    assert response.status_code == 405
