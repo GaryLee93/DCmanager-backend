@@ -265,6 +265,13 @@ class HostManager(BaseManager):
                 update_params.append(host_name)
 
                 cursor.execute(query, tuple(update_params))
+                # if new_running is False, we need to mark the IP as unassigned
+                if new_running is False:
+                    cursor.execute(
+                        "UPDATE IPs SET assigned = FALSE WHERE ip = (SELECT ip FROM hosts WHERE name = %s)",
+                        (host_name,),
+                    )
+                    
                 conn.commit()
 
                 # Check if any rows were affected
