@@ -65,7 +65,7 @@ def ProcessRoom(service_name):
     elif request.method == "PUT":
         data = request.get_json()
         name = data.get("name")
-        allocated_racks = data.get("allocated_racks")
+        allocated_racks = data.get("n_allocated_racks")
         allocated_subnets = data.get("allocated_subnets")
 
         print(data)
