@@ -41,16 +41,19 @@ class HostManager(BaseManager):
                 )
                 allocated_ip = cursor.fetchone()
                 if allocated_ip is not None:
+                    ip_value = allocated_ip["ip"]
                     # Update the IP to be assigned
                     cursor.execute(
                         "UPDATE IPs SET assigned = TRUE WHERE ip = %s",
-                        (allocated_ip,),
+                        (ip_value,),
                     )
+                else:
+                    ip_value = None  
 
                 new_host = Host(
                     name=name,
                     height=height,
-                    ip=allocated_ip,
+                    ip=ip_value,
                     running=True,
                     service_name=rack_data["service_name"],
                     dc_name=rack_data["dc_name"],
@@ -262,6 +265,13 @@ class HostManager(BaseManager):
                 update_params.append(host_name)
 
                 cursor.execute(query, tuple(update_params))
+                # if new_running is False, we need to mark the IP as unassigned
+                if new_running is False:
+                    cursor.execute(
+                        "UPDATE IPs SET assigned = FALSE WHERE ip = (SELECT ip FROM hosts WHERE name = %s)",
+                        (host_name,),
+                    )
+                    
                 conn.commit()
 
                 # Check if any rows were affected
@@ -302,6 +312,13 @@ class HostManager(BaseManager):
 
                 # Delete the host
                 cursor.execute("DELETE FROM hosts WHERE name = %s", (host_name,))
+
+                # If the host had an IP, mark it as unassigned
+                if host_data["ip"] is not None:
+                    cursor.execute(
+                        "UPDATE IPs SET assigned = FALSE WHERE ip = %s",
+                        (host_data["ip"],),
+                    )
                 conn.commit()
 
                 # Check if any rows were affected
