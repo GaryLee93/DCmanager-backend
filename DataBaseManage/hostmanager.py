@@ -256,7 +256,9 @@ class HostManager(BaseManager):
                     if new_dc_name != current_dc_name:
                         query_parts.append("dc_name = %s")
                         update_params.append(new_dc_name)
-
+                    if new_pos is not None:
+                        query_parts.append("pos = %s")
+                        update_params.append(new_pos)
                 if not query_parts:
                     # Nothing to update
                     return True
