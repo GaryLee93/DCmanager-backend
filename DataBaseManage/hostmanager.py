@@ -181,7 +181,6 @@ class HostManager(BaseManager):
         new_running: bool | None = None,
         new_rack_name: str | None = None,
         new_pos: int | None = None,
-        new_service_name: str | None = None,
     ) -> bool:
         """
         Update a host's information.
@@ -203,7 +202,7 @@ class HostManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if host exists and get its current information
                 cursor.execute(
-                    "SELECT name, rack_name, room_name, dc_name, ip FROM hosts WHERE name = %s",
+                    "SELECT name, rack_name, room_name, dc_name, ip, service_name FROM hosts WHERE name = %s",
                     (host_name,),
                 )
                 host_data = cursor.fetchone()
@@ -263,10 +262,6 @@ class HostManager(BaseManager):
                         query_parts.append("pos = %s")
                         update_params.append(new_pos)
 
-                    if new_service_name is not None:
-                        query_parts.append("service_name = %s")
-                        update_params.append(new_service_name)
-
                 if not query_parts:
                     # Nothing to update
                     return True
@@ -290,7 +285,7 @@ class HostManager(BaseManager):
                     # If the host is being set to running and has no IP, allocate a new one
                     cursor.execute(
                         "SELECT ip FROM IPs WHERE service_name = %s AND assigned = FALSE ORDER BY ip DESC LIMIT 1",
-                        (new_service_name or host_data["service_name"],),
+                        (host_data["service_name"],),
                     )
                     allocated_ip = cursor.fetchone()
                     if allocated_ip is not None:
