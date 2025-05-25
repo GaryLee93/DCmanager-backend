@@ -145,7 +145,7 @@ def test_MOdifyDC_failure(client: testing.FlaskClient, mock_db_manager: Datacent
     mock_db_manager.updateDatacenter.assert_called_once_with('Test_DC', data['name'], data['height'])
     mock_db_manager.getDatacenter.assert_called_once_with('Test_DC')
     assert response.status_code == 500
-    assert response.json['error'] == 'Update Failed'
+    assert response.json['error'] == 'Datacenter Update Failed'
 
 #Test DeleteDC
 def test_DeleteDC_success_no_rooms(client: testing.FlaskClient, mock_db_manager: DatacenterManager, mock_delete_room):

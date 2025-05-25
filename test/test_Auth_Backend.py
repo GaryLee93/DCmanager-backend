@@ -32,7 +32,7 @@ def test_Login(client: testing.FlaskClient, mock_db_manager: UserManager):
     mock_db_manager.authenticate.return_value = User(
         username=data['username'],
         password=data['password'],
-        role=UserRole.NORMAL
+        role=UserRole.NORMAL.value
     )
     response = client.post("/auth/login", json=data)
     mock_db_manager.authenticate.assert_called_once_with(data['username'], data['password'])
@@ -73,7 +73,7 @@ def test_Register(client: testing.FlaskClient, mock_db_manager: UserManager):
     mock_db_manager.createUser.return_value = User(
         username=data['username'],
         password=data['password'],
-        role=UserRole.NORMAL
+        role=UserRole.NORMAL.value
     )
     response = client.post("/auth/register", json=data)
     mock_db_manager.getUser.assert_called_once_with(username=data['username'])
@@ -91,7 +91,7 @@ def test_Register_username_exists(client: testing.FlaskClient, mock_db_manager: 
     mock_db_manager.getUser.return_value = User(
         username=data['username'],
         password='existing_password',
-        role=UserRole.NORMAL
+        role=UserRole.NORMAL.value
     )
     response = client.post("/auth/register", json=data)
     mock_db_manager.getUser.assert_called_once_with(username=data['username'])

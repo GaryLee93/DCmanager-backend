@@ -42,8 +42,8 @@ def assert_simple_rack(rack: json, rack_returned: SimpleRack):
 
 def assert_service(service: json, service_returned: Service):
     assert service['name'] == service_returned.name
-    for i, rack in enumerate(service['n_allocated_racks']):
-        assert_simple_rack(rack, service_returned.n_allocated_racks[i])
+    for i, rack in enumerate(service['allocated_racks']):
+        assert_simple_rack(rack, service_returned.allocated_racks[i])
     assert len(service['hosts']) == len(service_returned.hosts)
     for i, host in enumerate(service['hosts']):
         assert host['service_name'] == service_returned.hosts[i].service_name
@@ -56,7 +56,7 @@ def assert_service(service: json, service_returned: Service):
 def test_AddNewService(client: testing.FlaskClient, mock_db_manager: ServiceManager):
     data = {
         'name': 'Test_Service',
-        'n_allocated_racks': {},
+        'allocated_racks': {},
         'hosts': [],
         'username': 1,
         'allocated_subnets': [],
@@ -66,7 +66,7 @@ def test_AddNewService(client: testing.FlaskClient, mock_db_manager: ServiceMana
     mock_db_manager.getService.return_value = None
     mock_db_manager.createService.return_value = Service(
         name=data['name'],
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=data['username'],
         allocated_subnets=data['allocated_subnets'],
@@ -74,7 +74,7 @@ def test_AddNewService(client: testing.FlaskClient, mock_db_manager: ServiceMana
         available_ip_list=data['available_ip_list']
     )
     response = client.post("/service/", json=data)
-    mock_db_manager.createService.assert_called_once_with(data['name'], data['n_allocated_racks'], data['allocated_subnets'], data['username'])
+    mock_db_manager.createService.assert_called_once_with(data['name'], data['allocated_racks'], data['allocated_subnets'], data['username'])
     assert response.status_code == 200
     assert response.json['name'] == data['name']
     assert response.json['username'] == data['username']
@@ -82,7 +82,7 @@ def test_AddNewService(client: testing.FlaskClient, mock_db_manager: ServiceMana
 def test_AddNewService_already_exists(client: testing.FlaskClient, mock_db_manager: ServiceManager):
     data = {
         'name': 'Test_Service',
-        'n_allocated_racks': {},
+        'allocated_racks': {},
         'hosts': [],
         'username': 1,
         'allocated_subnets': [],
@@ -91,7 +91,7 @@ def test_AddNewService_already_exists(client: testing.FlaskClient, mock_db_manag
     }
     mock_db_manager.getService.return_value = Service(
         name=data['name'],
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=data['username'],
         allocated_subnets=data['allocated_subnets'],
@@ -107,7 +107,7 @@ def test_GetService(client: testing.FlaskClient, mock_db_manager: ServiceManager
     service_name = 'Test_Service'
     mock_db_manager.getService.return_value = Service(
         name=service_name,
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=1,
         allocated_subnets=[],
@@ -153,7 +153,7 @@ def test_DeleteService(client: testing.FlaskClient, mock_db_manager: ServiceMana
     service_name = 'Test_Service'
     mock_db_manager.getService.return_value = Service(
         name=service_name,
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=1,
         allocated_subnets=[],
@@ -178,7 +178,7 @@ def test_ModifyService_success(client: testing.FlaskClient, mock_db_manager: Ser
     service_name = 'Test_Service'
     mock_db_manager.getService.return_value = Service(
         name=service_name,
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=1,
         allocated_subnets=[],
@@ -187,12 +187,12 @@ def test_ModifyService_success(client: testing.FlaskClient, mock_db_manager: Ser
     )
     data = {
         'name': 'Modified_Service',
-        'n_allocated_racks': {},
+        'allocated_racks': {},
         'allocated_subnets': [],
     }
     mock_db_manager.updateService.return_value = True
     response = client.put(f"/service/{service_name}", json=data)
-    mock_db_manager.updateService.assert_called_once_with(service_name, data['name'], data['n_allocated_racks'], data['allocated_subnets'])
+    mock_db_manager.updateService.assert_called_once_with(service_name, data['name'], data['allocated_racks'], data['allocated_subnets'])
     assert response.status_code == 200
 
 def test_ModifyService_not_found(client: testing.FlaskClient, mock_db_manager: ServiceManager):
@@ -200,7 +200,7 @@ def test_ModifyService_not_found(client: testing.FlaskClient, mock_db_manager: S
     mock_db_manager.getService.return_value = None
     data = {
         'name': 'Modified_Service',
-        'n_allocated_racks': {},
+        'allocated_racks': {},
         'hosts': [],
         'username': 2,
         'allocated_subnets': [],
@@ -216,7 +216,7 @@ def test_ModifyService_failure(client: testing.FlaskClient, mock_db_manager: Ser
     service_name = 'Test_Service'
     mock_db_manager.getService.return_value = Service(
         name=service_name,
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=1,
         allocated_subnets=[],
@@ -225,7 +225,7 @@ def test_ModifyService_failure(client: testing.FlaskClient, mock_db_manager: Ser
     )
     data = {
         'name': 'Modified_Service',
-        'n_allocated_racks': {},
+        'allocated_racks': {},
         'hosts': [],
         'username': 2,
         'allocated_subnets': [],
@@ -234,14 +234,14 @@ def test_ModifyService_failure(client: testing.FlaskClient, mock_db_manager: Ser
     }
     mock_db_manager.updateService.return_value = False
     response = client.put(f"/service/{service_name}", json=data)
-    mock_db_manager.updateService.assert_called_once_with(service_name, data['name'], data['n_allocated_racks'], data['allocated_subnets'])
+    mock_db_manager.updateService.assert_called_once_with(service_name, data['name'], data['allocated_racks'], data['allocated_subnets'])
     assert response.status_code == 500
 
 def test_ModifyService_invalid_data(client: testing.FlaskClient, mock_db_manager: ServiceManager):
     service_name = 'Test_Service'
     mock_db_manager.getService.return_value = Service(
         name=service_name,
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=1,
         allocated_subnets=[],
@@ -250,7 +250,7 @@ def test_ModifyService_invalid_data(client: testing.FlaskClient, mock_db_manager
     )
     data = {
         'name': '',  # Invalid name
-        'n_allocated_racks': {},
+        'allocated_racks': {},
         'hosts': [],
         'username': 2,
         'allocated_subnets': [],
@@ -266,7 +266,7 @@ def test_ModifyService_no_data(client: testing.FlaskClient, mock_db_manager: Ser
     service_name = 'Test_Service'
     mock_db_manager.getService.return_value = Service(
         name=service_name,
-        n_allocated_racks={},
+        allocated_racks={},
         hosts=[],
         username=1,
         allocated_subnets=[],

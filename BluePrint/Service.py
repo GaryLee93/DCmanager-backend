@@ -12,7 +12,7 @@ def AddService():
     Add a new service.
 
     Params:
-        name, n_allocated_racks, allocated_subnets, username
+        name, allocated_racks, allocated_subnets, username
 
     Response:
         Datacenter ID
@@ -20,7 +20,7 @@ def AddService():
     data = request.get_json()
 
     name = data.get("name")
-    n_allocated_racks = data.get("n_allocated_racks")
+    allocated_racks = data.get("allocated_racks")
     allocated_subnets = data.get("allocated_subnets")
     username = data.get("username")
 
@@ -30,7 +30,7 @@ def AddService():
 
     try:
         new_service = Service_Manager.createService(
-            name, n_allocated_racks, allocated_subnets, username
+            name, allocated_racks, allocated_subnets, username
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -65,17 +65,17 @@ def ProcessRoom(service_name):
     elif request.method == "PUT":
         data = request.get_json()
         name = data.get("name")
-        n_allocated_racks = data.get("n_allocated_racks")
+        allocated_racks = data.get("allocated_racks")
         allocated_subnets = data.get("allocated_subnets")
 
         if Service_Manager.getService(service_name) == None:
             return jsonify({"error": "Service Not Found"}), 404
 
-        if not name or not isinstance(n_allocated_racks, dict) or not isinstance(allocated_subnets, list):
+        if not name or not isinstance(allocated_racks, dict) or not isinstance(allocated_subnets, list):
             return jsonify({"error": "Invalid input"}), 400
 
         try:
-            if not Service_Manager.updateService(service_name, name, n_allocated_racks, allocated_subnets):
+            if not Service_Manager.updateService(service_name, name, allocated_racks, allocated_subnets):
                 return jsonify({"error": "Modification Failed"}), 500
         except Exception as e:
             return jsonify({"error": str(e)}), 500
