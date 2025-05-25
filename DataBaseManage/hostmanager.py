@@ -201,7 +201,7 @@ class HostManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if host exists and get its current information
                 cursor.execute(
-                    "SELECT name, rack_name, room_name, dc_name FROM hosts WHERE name = %s",
+                    "SELECT name, rack_name, room_name, dc_name, ip FROM hosts WHERE name = %s",
                     (host_name,),
                 )
                 host_data = cursor.fetchone()
@@ -272,10 +272,10 @@ class HostManager(BaseManager):
 
                 cursor.execute(query, tuple(update_params))
                 # if new_running is False, we need to mark the IP as unassigned
-                if new_running is False:
+                if new_running is False and host_data["ip"] is not None:
                     cursor.execute(
-                        "UPDATE IPs SET assigned = FALSE WHERE ip = (SELECT ip FROM hosts WHERE name = %s)",
-                        (host_name,),
+                        "UPDATE IPs SET assigned = FALSE WHERE ip = %s",
+                        (host_data["ip"],),
                     )
 
                 conn.commit()

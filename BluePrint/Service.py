@@ -80,12 +80,13 @@ def ProcessRoom(service_name):
             if not Service_Manager.updateService(service_name, name, allocated_racks):
                 return jsonify({"error": "Modification Failed"}), 500
 
-            service = Service_Manager.getService(name)
-            for subnet in allocated_subnets:
-                if subnet not in service.allocated_subnets:
-                    result = Service_Manager.extendsubnet(name, subnet)
-                    if not result:
-                        return jsonify({"error": f"Failed to extend subnet {subnet}"}), 500
+            if allocated_subnets:
+                service = Service_Manager.getService(name)
+                for subnet in allocated_subnets:
+                    if subnet not in service.allocated_subnets:
+                        result = Service_Manager.extendsubnet(name, subnet)
+                        if not result:
+                            return jsonify({"error": f"Failed to extend subnet {subnet}"}), 500
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
