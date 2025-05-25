@@ -215,7 +215,7 @@ class ServiceManager(BaseManager):
                 # Create and return a Service object
                 return Service(
                     name=name,
-                    n_allocated_racks=all_assigned_racks,
+                    allocated_racks=all_assigned_racks,
                     hosts=all_hosts,
                     username=username,
                     allocated_subnets=allocated_subnets,
@@ -349,7 +349,7 @@ class ServiceManager(BaseManager):
                 # Create and return a Service object
                 return Service(
                     name=data["name"],
-                    n_allocated_racks=allocated_racks,
+                    allocated_racks=allocated_racks,
                     hosts=all_hosts,
                     username=data["username"],
                     allocated_subnets=subnets,

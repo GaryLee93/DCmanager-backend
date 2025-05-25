@@ -78,7 +78,7 @@ class SimpleDataCenter:
 @dataclass
 class Service:
     name: str
-    n_allocated_racks: dict[
+    allocated_racks: dict[
         str, list[SimpleRack]
     ]  # how many racks are allocated in each dc
     hosts: list[Host]
