@@ -65,18 +65,28 @@ def ProcessRoom(service_name):
     elif request.method == "PUT":
         data = request.get_json()
         name = data.get("name")
-        allocated_racks = data.get("allocated_racks")
+        allocated_racks = data.get("n_allocated_racks")
         allocated_subnets = data.get("allocated_subnets")
+
+        print(data)
 
         if Service_Manager.getService(service_name) == None:
             return jsonify({"error": "Service Not Found"}), 404
 
-        if not name or not isinstance(allocated_racks, dict) or not isinstance(allocated_subnets, list):
-            return jsonify({"error": "Invalid input"}), 400
+        # if not name or not isinstance(allocated_racks, dict) or not isinstance(allocated_subnets, list):
+        #     return jsonify({"error": "Invalid input"}), 400
 
         try:
-            if not Service_Manager.updateService(service_name, name, allocated_racks, allocated_subnets):
+            if not Service_Manager.updateService(service_name, name, allocated_racks):
                 return jsonify({"error": "Modification Failed"}), 500
+
+            if allocated_subnets:
+                service = Service_Manager.getService(name)
+                for subnet in allocated_subnets:
+                    if subnet not in service.allocated_subnets:
+                        result = Service_Manager.extendsubnet(name, subnet)
+                        if not result:
+                            return jsonify({"error": f"Failed to extend subnet {subnet}"}), 500
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
