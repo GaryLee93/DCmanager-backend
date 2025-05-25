@@ -68,11 +68,13 @@ def ProcessRoom(service_name):
         allocated_racks = data.get("allocated_racks")
         allocated_subnets = data.get("allocated_subnets")
 
-        if Service_Manager.getService(service_name) is None:
+        print(data)
+
+        if Service_Manager.getService(service_name) == None:
             return jsonify({"error": "Service Not Found"}), 404
 
-        if not name or not isinstance(allocated_racks, dict) or not isinstance(allocated_subnets, list):
-            return jsonify({"error": "Invalid input"}), 400
+        # if not name or not isinstance(allocated_racks, dict) or not isinstance(allocated_subnets, list):
+        #     return jsonify({"error": "Invalid input"}), 400
 
         try:
             if not Service_Manager.updateService(service_name, name, allocated_racks):
