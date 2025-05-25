@@ -179,6 +179,7 @@ class HostManager(BaseManager):
         new_running: bool | None = None,
         new_rack_name: str | None = None,
         new_pos: int | None = None,
+        new_service_name: str | None = None,
     ) -> bool:
         """
         Update a host's information.
@@ -259,6 +260,9 @@ class HostManager(BaseManager):
                     if new_pos is not None:
                         query_parts.append("pos = %s")
                         update_params.append(new_pos)
+                    if new_service_name is not None:
+                        query_parts.append("service_name = %s")
+                        update_params.append(new_service_name)
                 if not query_parts:
                     # Nothing to update
                     return True
