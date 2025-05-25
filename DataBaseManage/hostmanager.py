@@ -75,7 +75,7 @@ class HostManager(BaseManager):
                     ),
                 )
                 conn.commit()
-                
+
                 return new_host
 
         except Exception as e:
@@ -197,7 +197,7 @@ class HostManager(BaseManager):
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 # First check if host exists and get its current information
                 cursor.execute(
-                    "SELECT name, rack_name, room_name FROM hosts WHERE name = %s",
+                    "SELECT name, rack_name, room_name, dc_name FROM hosts WHERE name = %s",
                     (host_name,),
                 )
                 host_data = cursor.fetchone()
@@ -207,12 +207,13 @@ class HostManager(BaseManager):
 
                 current_rack_name = host_data["rack_name"]
                 current_room_name = host_data["room_name"]
+                current_dc_name   = host_data["dc_name"]
 
                 # Check if rack to be move to exists
                 new_room_name = None
                 if new_rack_name is not None and new_rack_name != current_rack_name:
                     cursor.execute(
-                        "SELECT name, room_name FROM racks WHERE name = %s",
+                        "SELECT name, room_name, dc_name FROM racks WHERE name = %s",
                         (new_rack_name,),
                     )
                     new_rack_data = cursor.fetchone()
@@ -221,6 +222,7 @@ class HostManager(BaseManager):
                         return False
 
                     new_room_name = new_rack_data["room_name"]
+                    new_dc_name   = new_rack_data["dc_name"]
 
                 # Build the update query based on provided parameters
                 update_params = []
@@ -245,6 +247,10 @@ class HostManager(BaseManager):
                     if new_room_name != current_room_name:
                         query_parts.append("room_name = %s")
                         update_params.append(new_room_name)
+
+                    if new_dc_name != current_dc_name:
+                        query_parts.append("dc_name = %s")
+                        update_params.append(new_dc_name)
 
                 if not query_parts:
                     # Nothing to update

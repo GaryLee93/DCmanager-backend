@@ -11,7 +11,7 @@ class ServiceManager(BaseManager):
         Convert a subnet to a list of IP addresses.
 
         Args:
-            subnet (str): Subnet in CIDR notation 
+            subnet (str): Subnet in CIDR notation
                 e.g. 168.0.0/24
 
         Returns:
@@ -27,7 +27,7 @@ class ServiceManager(BaseManager):
             raise Exception(f"Invalid subnet: {e}")
         except Exception as e:
             raise Exception(f"Error generating IP list: {e}")
-        
+
     def createService(
         self, name: str, n_allocated_racks: dict[str, int], allocated_subnets: list[str], username: str
     ) -> Service | None:
@@ -55,7 +55,7 @@ class ServiceManager(BaseManager):
                 user_data = cursor.fetchone()
                 if user_data is None:
                     raise Exception(f"User {username} does not exist")
-                
+
                 # Insert the new service
                 cursor.execute(
                     "INSERT INTO services (name, username) VALUES (%s, %s)RETURNING name, username",
@@ -114,7 +114,7 @@ class ServiceManager(BaseManager):
                                 ON CONFLICT (ip) DO UPDATE
                                 SET service_name = EXCLUDED.service_name, assigned = FALSE
                                 """,
-                                (ip, name)  
+                                (ip, name)
                             )
                             total_ips_list.append(ip)
                             available_ips_list.append(ip)
@@ -136,7 +136,7 @@ class ServiceManager(BaseManager):
                     # Find {n_racks} racks that are not assigned to any service in this DC
                     cursor.execute(
                         """
-                        SELECT name FROM racks 
+                        SELECT name FROM racks
                         WHERE service_name IS NULL AND dc_name = %s
                         LIMIT %s
                         """,
@@ -156,15 +156,15 @@ class ServiceManager(BaseManager):
 
                         cursor.execute(
                             """
-                            UPDATE racks 
-                            SET service_name = %s 
+                            UPDATE racks
+                            SET service_name = %s
                             WHERE name = %s
                             RETURNING *
                             """,
                             (name, rack_name),
                         )
                         updated_rack = cursor.fetchone()
-                        
+
                         # Get hosts for this rack
                         cursor.execute(
                             "SELECT * FROM hosts WHERE rack_name = %s",
@@ -186,7 +186,7 @@ class ServiceManager(BaseManager):
                             for host_data in hosts_data
                         ]
                         all_hosts.extend(rack_hosts)
-                        
+
                         # Calculate the number of hosts
                         n_hosts = len(rack_hosts)
                         # Calculate the capacity
@@ -205,7 +205,7 @@ class ServiceManager(BaseManager):
                                     room_name=updated_rack["room_name"],
                                 )
                             )
-                    
+
                     # Store the racks for this datacenter
                     all_assigned_racks[dc_name] = assigned_racks
 
@@ -215,7 +215,7 @@ class ServiceManager(BaseManager):
                 # Create and return a Service object
                 return Service(
                     name=name,
-                    allocated_racks=all_assigned_racks,
+                    n_allocated_racks=all_assigned_racks,
                     hosts=all_hosts,
                     username=username,
                     allocated_subnets=allocated_subnets,
@@ -257,30 +257,30 @@ class ServiceManager(BaseManager):
                 # Get all datacenters that have racks for this service
                 cursor.execute(
                     """
-                    SELECT DISTINCT dc_name 
-                    FROM racks 
+                    SELECT DISTINCT dc_name
+                    FROM racks
                     WHERE service_name = %s
-                    """, 
+                    """,
                     (service_name,)
                 )
                 dc_data = cursor.fetchall()
                 dc_names = [dc["dc_name"] for dc in dc_data]
-                
+
                 # Initialize allocated_racks dictionary
                 allocated_racks = {dc_name: [] for dc_name in dc_names}
                 all_hosts = []
-                
+
                 # For each datacenter, get the racks
                 for dc_name in dc_names:
                     cursor.execute(
                         """
-                        SELECT * FROM racks 
+                        SELECT * FROM racks
                         WHERE service_name = %s AND dc_name = %s
-                        """, 
+                        """,
                         (service_name, dc_name)
                     )
                     racks_data = cursor.fetchall()
-                    
+
                     # Process each rack in this datacenter
                     for rack_data in racks_data:
                         # Get hosts for this rack
@@ -304,11 +304,11 @@ class ServiceManager(BaseManager):
                             for host_data in hosts_data
                         ]
                         all_hosts.extend(rack_hosts)
-                        
+
                         # Calculate the capacity
                         already_used = sum(host.height for host in rack_hosts)
                         capacity = rack_data["height"] - already_used
-                        
+
                         # Create a SimpleRack object
                         allocated_racks[dc_name].append(
                             SimpleRack(
@@ -323,16 +323,16 @@ class ServiceManager(BaseManager):
 
                 # Get all IP addresses for this service
                 cursor.execute(
-                    "SELECT ip FROM IPs WHERE service_name = %s", 
+                    "SELECT ip FROM IPs WHERE service_name = %s",
                     (service_name,)
                 )
                 ip_data = cursor.fetchall()
                 total_ip_list = [ip["ip"] for ip in ip_data]
-                
+
                 # Get available (not assigned) IP addresses for this service
                 cursor.execute(
                     """
-                    SELECT ip FROM IPs 
+                    SELECT ip FROM IPs
                     WHERE service_name = %s AND assigned = FALSE
                     """,
                     (service_name,),
@@ -341,7 +341,7 @@ class ServiceManager(BaseManager):
                 available_ip_list = [ip["ip"] for ip in available_ip_data]
                 # get the subnet of this service
                 cursor.execute(
-                    "SELECT subnet FROM subnets WHERE service_name = %s", 
+                    "SELECT subnet FROM subnets WHERE service_name = %s",
                     (service_name,)
                 )
                 subnets = cursor.fetchall()
@@ -349,7 +349,7 @@ class ServiceManager(BaseManager):
                 # Create and return a Service object
                 return Service(
                     name=data["name"],
-                    allocated_racks=allocated_racks,
+                    n_allocated_racks=allocated_racks,
                     hosts=all_hosts,
                     username=data["username"],
                     allocated_subnets=subnets,
@@ -394,14 +394,14 @@ class ServiceManager(BaseManager):
                 for data in services_data:
                     # get all the subnets of this service
                     cursor.execute(
-                        "SELECT subnet FROM subnets WHERE service_name = %s", 
+                        "SELECT subnet FROM subnets WHERE service_name = %s",
                         (data["name"],)
                     )
                     subnets = cursor.fetchall()
                     subnets = [subnet["subnet"] for subnet in subnets]
                     # get total IP addresses of this service
                     cursor.execute(
-                        "SELECT ip FROM IPs WHERE service_name = %s", 
+                        "SELECT ip FROM IPs WHERE service_name = %s",
                         (data["name"],)
                     )
                     ip_data = cursor.fetchall()
@@ -409,7 +409,7 @@ class ServiceManager(BaseManager):
                     # get available IP addresses of this service
                     cursor.execute(
                         """
-                        SELECT ip FROM IPs 
+                        SELECT ip FROM IPs
                         WHERE service_name = %s AND assigned = FALSE
                         """,
                         (data["name"],)
@@ -440,10 +440,10 @@ class ServiceManager(BaseManager):
                 self.release_connection(conn)
 
     def updateService(
-        self, 
-        service_name: str, 
-        new_name: str | None = None, 
-        new_n_allocated_racks: dict[str, int] | None = None, 
+        self,
+        service_name: str,
+        new_name: str | None = None,
+        new_n_allocated_racks: dict[str, int] | None = None,
     ) -> Service | None:
         """
         Update an existing service in the database.
@@ -489,7 +489,7 @@ class ServiceManager(BaseManager):
 
                     cursor.execute(query, params)
                     updated_service = cursor.fetchone()
-                    
+
                     # If name was updated, update all references
                     if new_name is not None:
                         # Update service_name in racks table
@@ -497,13 +497,13 @@ class ServiceManager(BaseManager):
                             "UPDATE racks SET service_name = %s WHERE service_name = %s",
                             (new_name, service_name)
                         )
-                        
+
                         # Update service_name in hosts table
                         cursor.execute(
                             "UPDATE hosts SET service_name = %s WHERE service_name = %s",
                             (new_name, service_name)
                         )
-                        
+
                         # Update service_name in IPs table
                         cursor.execute(
                             "UPDATE IPs SET service_name = %s WHERE service_name = %s",
@@ -517,26 +517,26 @@ class ServiceManager(BaseManager):
                     for dc_name, n_racks in new_n_allocated_racks.items():
                         # Verify datacenter exists
                         cursor.execute(
-                            "SELECT name FROM datacenters WHERE name = %s", 
+                            "SELECT name FROM datacenters WHERE name = %s",
                             (dc_name,)
                         )
                         if cursor.fetchone() is None:
                             raise Exception(f"Datacenter {dc_name} does not exist")
-                        
+
                         # Find available racks in this datacenter
                         cursor.execute(
                             """
-                            SELECT name FROM racks 
+                            SELECT name FROM racks
                             WHERE service_name IS NULL AND dc_name = %s
                             LIMIT %s
                             """,
                             (dc_name, n_racks)
                         )
                         available_racks = cursor.fetchall()
-                        
+
                         if len(available_racks) < n_racks:
                             raise Exception(f"Not enough available racks in datacenter {dc_name}")
-                        
+
                         # Assign new racks to this service
                         for rack in available_racks:
                             cursor.execute(
@@ -546,7 +546,7 @@ class ServiceManager(BaseManager):
 
                 # Commit all changes
                 conn.commit()
-                
+
                 # Return the updated service
                 return self.getService(update_name)
 
@@ -666,7 +666,7 @@ class ServiceManager(BaseManager):
                     raise Exception(
                         f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
                     )
-                
+
                 # Insert the new subnet into the subnets table
                 cursor.execute(
                     """
@@ -677,7 +677,7 @@ class ServiceManager(BaseManager):
                     """,
                     (new_subnet, service_name),
                 )
-                
+
                 for ip in ip_list:
                     cursor.execute(
                         """
@@ -686,7 +686,7 @@ class ServiceManager(BaseManager):
                         ON CONFLICT (ip) DO UPDATE
                         SET service_name = EXCLUDED.service_name, assigned = FALSE
                         """,
-                        (ip, service_name)  
+                        (ip, service_name)
                     )
 
                 # Commit all changes
@@ -701,7 +701,7 @@ class ServiceManager(BaseManager):
             raise e
         finally:
             if conn:
-                self 
+                self
 
     def assignRackToService(self, service_name: str, rack_name: str) -> bool:
         """
@@ -738,7 +738,7 @@ class ServiceManager(BaseManager):
                 if result is not None and result[0] is not None:
                     # Rack is already assigned to a service
                     return False
-                    
+
                 # Assign the rack to the service
                 cursor.execute(
                     "UPDATE racks SET service_name = %s WHERE name = %s",
@@ -814,4 +814,3 @@ class ServiceManager(BaseManager):
         finally:
             if conn:
                 self.release_connection(conn)
-

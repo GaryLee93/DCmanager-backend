@@ -177,12 +177,20 @@ class RackManager(BaseManager):
                     # TODO: implement logic of moving rack to a new room
                     # check if new room exists
                     cursor.execute(
-                        "SELECT name FROM rooms WHERE name = %s", (room_name,)
+                        "SELECT name, dc_name FROM rooms WHERE name = %s", (room_name,)
                     )
-                    if cursor.fetchone() is None:
+                    new_room_data = cursor.fetchone()
+
+                    if new_room_data is None:
                        return False
+
+                    new_dc_name = new_room_data["dc_name"]
+
                     query_parts.append("room_name = %s")
                     update_params.append(room_name)
+
+                    query_parts.append("dc_name = %s")
+                    update_params.append(new_dc_name)
 
                 if not query_parts:
                     # Nothing to update
