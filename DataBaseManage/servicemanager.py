@@ -85,39 +85,37 @@ class ServiceManager(BaseManager):
                     ip_list = self.subnet_to_iplist(allocated_subnet)
 
                     # Find existing IPs in the database
-                    cursor.execute(
-                        "SELECT * FROM IPs WHERE ip::text = ANY(%s)", (ip_list,)
-                    )
-                    existing_ips = cursor.fetchall()
+                    # cursor.execute(
+                    #     "SELECT * FROM IPs WHERE ip::text IN %s", (tuple(ip_list),)
+                    # )
+                    # existing_ips = cursor.fetchall()
                     total_ips_list = []
                     available_ips_list = []
-                    if existing_ips:
-                        raise Exception(
-                            f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
-                        )
-                    else:
-                        # Insert the new subnet into the subnets table
+                    # if existing_ips:
+                    #     raise Exception(
+                    #         f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
+                    #     )
+
+                    # Insert the new subnet into the subnets table
+                    cursor.execute(
+                        """
+                        INSERT INTO subnets (subnet, service_name)
+                        VALUES (%s, %s)
+                        ON CONFLICT (subnet) DO NOTHING
+                        RETURNING subnet
+                        """,
+                        (allocated_subnet, name),
+                    )
+                    for ip in ip_list:
                         cursor.execute(
                             """
-                            INSERT INTO subnets (subnet, service_name)
-                            VALUES (%s, %s)
-                            ON CONFLICT (subnet) DO NOTHING
-                            RETURNING subnet
+                            INSERT INTO IPs (ip, service_name, assigned)
+                            VALUES (%s, %s, FALSE)
                             """,
-                            (allocated_subnet, name),
+                            (ip, name)
                         )
-                        for ip in ip_list:
-                            cursor.execute(
-                                """
-                                INSERT INTO IPs (ip, service_name, assigned)
-                                VALUES (%s, %s, FALSE)
-                                ON CONFLICT (ip) DO UPDATE
-                                SET service_name = EXCLUDED.service_name, assigned = FALSE
-                                """,
-                                (ip, name)
-                            )
-                            total_ips_list.append(ip)
-                            available_ips_list.append(ip)
+                        total_ips_list.append(ip)
+                        available_ips_list.append(ip)
 
 
                 # Process allocated racks for each datacenter
@@ -659,22 +657,15 @@ class ServiceManager(BaseManager):
                     raise Exception(f"Subnet {new_subnet} already exists in the database")
                 ip_list = self.subnet_to_iplist(new_subnet)
 
-                # debug: print all ips
-                cursor.excute(
-                    "SELECT * FROM IPs WHERE service_name = %s", (service_name,)
-                )
-                print("All IPs in the service:", cursor.fetchall())
-                print("New IPs to be added:", ip_list)
-                
                 # Find existing IPs in the database
-                cursor.execute(
-                    "SELECT * FROM IPs WHERE ip::text = ANY(%s)", (ip_list,)
-                )
-                existing_ips = cursor.fetchall()
-                if existing_ips:
-                    raise Exception(
-                        f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
-                    )
+                # cursor.execute(
+                #     "SELECT * FROM IPs WHERE ip::text = ANY(%s::text[])", (ip_list,)
+                # )
+                # existing_ips = cursor.fetchall()
+                # if existing_ips:
+                #     raise Exception(
+                #         f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
+                #     )
 
                 # Insert the new subnet into the subnets table
                 cursor.execute(
@@ -692,8 +683,6 @@ class ServiceManager(BaseManager):
                         """
                         INSERT INTO IPs (ip, service_name, assigned)
                         VALUES (%s, %s, FALSE)
-                        ON CONFLICT (ip) DO UPDATE
-                        SET service_name = EXCLUDED.service_name, assigned = FALSE
                         """,
                         (ip, service_name)
                     )

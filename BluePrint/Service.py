@@ -1,6 +1,8 @@
+import re
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from dataclasses import asdict
+import traceback
 
 Service_Manager = ServiceManager()
 SERVICE_BLUEPRINT = Blueprint("service", __name__)
@@ -33,7 +35,20 @@ def AddService():
             name, allocated_racks, allocated_subnets, username
         )
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        traceback.print_exc()
+        error_msg = str(e)
+
+        # 判斷是否為重複主鍵錯誤且包含 IP
+        if 'duplicate key value violates unique constraint' in error_msg and 'Key (ip)=' in error_msg:
+            # 用正則表達式提取 IP 位址
+            match = re.search(r'Key \(ip\)=\((.*?)\)', error_msg)
+            if match:
+                ip = match.group(1)
+                error_msg = f"IP {ip} already exists."
+            else:
+                error_msg = "Some IP already exists."
+
+        return jsonify({"error": error_msg}), 500
 
     if not new_service:
         return jsonify({"error": "Failed to create service"}), 500
@@ -88,7 +103,20 @@ def ProcessRoom(service_name):
                         if not result:
                             return jsonify({"error": f"Failed to extend subnet {subnet}"}), 500
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            traceback.print_exc()
+            error_msg = str(e)
+
+            # 判斷是否為重複主鍵錯誤且包含 IP
+            if 'duplicate key value violates unique constraint' in error_msg and 'Key (ip)=' in error_msg:
+                # 用正則表達式提取 IP 位址
+                match = re.search(r'Key \(ip\)=\((.*?)\)', error_msg)
+                if match:
+                    ip = match.group(1)
+                    error_msg = f"IP {ip} already exists."
+                else:
+                    error_msg = "Some IP already exists."
+
+            return jsonify({"error": error_msg}), 500
 
         return Response(status=200)
 
