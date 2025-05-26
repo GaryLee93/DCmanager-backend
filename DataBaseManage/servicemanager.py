@@ -69,6 +69,8 @@ class ServiceManager(BaseManager):
                     return None
 
                 # Generate IP list from subnet
+                total_ips_list = []
+                available_ips_list = []
                 for allocated_subnet in allocated_subnets:
                     # Check if subnet is valid
                     try:
@@ -89,8 +91,6 @@ class ServiceManager(BaseManager):
                     #     "SELECT * FROM IPs WHERE ip::text IN %s", (tuple(ip_list),)
                     # )
                     # existing_ips = cursor.fetchall()
-                    total_ips_list = []
-                    available_ips_list = []
                     # if existing_ips:
                     #     raise Exception(
                     #         f"IP addresses {', '.join(ip['ip'] for ip in existing_ips)} already exist in the database"
@@ -114,8 +114,9 @@ class ServiceManager(BaseManager):
                             """,
                             (ip, name)
                         )
-                        total_ips_list.append(ip)
-                        available_ips_list.append(ip)
+
+                    total_ips_list += ip_list
+                    available_ips_list += ip_list
 
 
                 # Process allocated racks for each datacenter
@@ -217,8 +218,8 @@ class ServiceManager(BaseManager):
                     hosts=all_hosts,
                     username=username,
                     allocated_subnets=allocated_subnets,
-                    total_ip_list=ip_list,
-                    available_ip_list=ip_list.copy(),
+                    total_ip_list=total_ips_list,
+                    available_ip_list=available_ips_list,
                 )
 
         except Exception as e:
@@ -722,7 +723,7 @@ class ServiceManager(BaseManager):
                 )
                 if cursor.fetchone() is None:
                     return False
-        
+
                 # Check if rack exists
                 cursor.execute("SELECT name FROM racks WHERE name = %s", (rack_name,))
                 if cursor.fetchone() is None:
