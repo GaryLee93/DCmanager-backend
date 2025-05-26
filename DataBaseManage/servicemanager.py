@@ -391,17 +391,19 @@ class ServiceManager(BaseManager):
                 services_data = cursor.fetchall()
                 service_list = []
                 for data in services_data:
+                    service_name = data["name"]
+
                     # get all the subnets of this service
                     cursor.execute(
                         "SELECT subnet FROM subnets WHERE service_name = %s",
-                        (data["name"],)
+                        (service_name,)
                     )
                     subnets = cursor.fetchall()
                     subnets = [subnet["subnet"] for subnet in subnets]
                     # get total IP addresses of this service
                     cursor.execute(
                         "SELECT ip FROM IPs WHERE service_name = %s",
-                        (data["name"],)
+                        (service_name,)
                     )
                     ip_data = cursor.fetchall()
                     total_ip_list = [ip["ip"] for ip in ip_data]
@@ -411,17 +413,28 @@ class ServiceManager(BaseManager):
                         SELECT ip FROM IPs
                         WHERE service_name = %s AND assigned = FALSE
                         """,
-                        (data["name"],)
+                        (service_name,)
                     )
                     available_ip_data = cursor.fetchall()
                     available_ip_list = [ip["ip"] for ip in available_ip_data]
+
+                    # get {dc_name: n_rack} dict
+                    cursor.execute("""
+                        SELECT dc_name, COUNT(DISTINCT name) AS rack_count
+                        FROM racks
+                        WHERE service_name = %s
+                        GROUP BY dc_name
+                    """, (service_name,))
+                    dc_rack_rows = cursor.fetchall()
+                    dc_rack_dict = {row["dc_name"]: row["rack_count"] for row in dc_rack_rows}
+
                     # Create a SimpleService object with summary information
                     service_list.append(
                         SimpleService(
-                            name=data["name"],
+                            name=service_name,
                             username=data["username"],
                             allocated_subnets=subnets,
-                            n_allocated_racks=data["rack_count"],
+                            n_allocated_racks=dc_rack_dict,
                             n_hosts=data["host_count"],
                             total_ip_list= total_ip_list,
                             available_ip_list= available_ip_list,
