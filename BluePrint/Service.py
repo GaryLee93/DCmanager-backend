@@ -30,6 +30,11 @@ def AddService():
     if Service_Manager.getService(name) is not None:
         return jsonify({"error": "Service already exists"}), 400
 
+    if allocated_racks == None:
+        allocated_racks = {}
+    if allocated_subnets == None:
+        allocated_subnets = []
+
     try:
         new_service = Service_Manager.createService(
             name, allocated_racks, allocated_subnets, username
