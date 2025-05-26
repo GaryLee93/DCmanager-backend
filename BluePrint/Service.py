@@ -4,6 +4,7 @@ from DataBaseManage import *
 from dataclasses import asdict
 import traceback
 
+Host_Manager = HostManager()
 Service_Manager = ServiceManager()
 SERVICE_BLUEPRINT = Blueprint("service", __name__)
 
@@ -14,7 +15,7 @@ def AddService():
     Add a new service.
 
     Params:
-        name, allocated_racks, allocated_subnets, username
+        name, n_allocated_racks, allocated_subnets, username
 
     Response:
         Datacenter ID
@@ -22,9 +23,11 @@ def AddService():
     data = request.get_json()
 
     name = data.get("name")
-    allocated_racks = data.get("allocated_racks")
+    allocated_racks = data.get("n_allocated_racks")
     allocated_subnets = data.get("allocated_subnets")
     username = data.get("username")
+
+    print(data)
 
     # Check if service already exists
     if Service_Manager.getService(name) is not None:
@@ -126,10 +129,15 @@ def ProcessRoom(service_name):
         return Response(status=200)
 
     elif request.method == "DELETE":
-        if Service_Manager.getService(service_name) == None:
+        service = Service_Manager.getService(service_name)
+        if service == None:
             return jsonify({"error": "Service Not Found"}), 404
         if not Service_Manager.deleteService(service_name):
-            return jsonify({"error": "Delete Failed"}), 500
+            return jsonify({"error": "Service Delete Failed"}), 500
+        for h in service.hosts:
+            if not Host_Manager.deleteHost(h.name):
+                return jsonify({"error": "Host under service Delete Failed"}), 500
+
         return Response(status=200)
 
     return Response(status=405)
