@@ -1,3 +1,4 @@
+import traceback
 from flask import Blueprint, request, jsonify, Response
 from DataBaseManage import *
 from .Host import DeleteHost
@@ -80,8 +81,12 @@ def ModifyRack(rack_name, new_rack_name, height, room_name, service_name):
     if not Rack_Manager.updateRack(rack_name, new_rack_name, height, room_name):
         return jsonify({"error": "Rack Update Failed"}), 500
     if service_name != rack.service_name:
-        if not Service_Manager.assignRackToService(new_rack_name, service_name):
-            return jsonify({"error": f"Assign Rack to Service {service_name} Failed"}), 500
+        try:
+            if not Service_Manager.assignRackToService(new_rack_name, service_name):
+                return jsonify({"error": f"Assign Rack to Service {service_name} Failed"}), 500
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({"error": str(e)}), 500
     for host in rack.hosts:
         if not Host_Manager.updateHost(host.name, None, None, None, new_rack_name, None):
             return jsonify({"error": "Host Update Failed"}), 500

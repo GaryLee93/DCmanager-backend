@@ -580,7 +580,13 @@ class ServiceManager(BaseManager):
 
                 # Unassign hosts from this service
                 cursor.execute(
-                    "UPDATE hosts SET service_name = NULL WHERE service_name = %s",
+                    """
+                    UPDATE hosts
+                    SET service_name = NULL,
+                        running = FALSE,
+                        ip = NULL
+                    WHERE service_name = %s
+                    """,
                     (service_name,)
                 )
 
@@ -589,18 +595,18 @@ class ServiceManager(BaseManager):
                     "UPDATE racks SET service_name = NULL WHERE service_name = %s",
                     (service_name,)
                 )
-                # find subnet of this service
+
+                # delete subnet from this service
                 cursor.execute(
-                    "SELECT subnet FROM subnets WHERE service_name = %s",
+                    "DELETE FROM subnets WHERE service_name = %s",
                     (service_name,)
                 )
-                subnet = cursor.fetchone()
-                # delete IP addresses from this subnet
-                if subnet:
-                    cursor.execute(
-                        "DELETE FROM IPs WHERE subnet = %s",
-                        (subnet["subnet"])
-                    )
+
+                # delete IP addresses
+                cursor.execute(
+                    "DELETE FROM IPs WHERE service_name = %s",
+                    (service_name,)
+                )
 
                 # Delete the service
                 cursor.execute("DELETE FROM services WHERE name = %s", (service_name,))
@@ -735,8 +741,9 @@ class ServiceManager(BaseManager):
                 )
                 result = cursor.fetchone()
                 if result is not None and result[0] is not None:
-                    # Rack is already assigned to a service
-                    return False
+                    raise Exception(
+                        f"Rack {rack_name} is already assigned to a service"
+                    )
                 # check rack don't have any hosts assigned to it
                 cursor.execute(
                     "SELECT COUNT(*) FROM hosts WHERE rack_name = %s", (rack_name,)
